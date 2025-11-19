@@ -11,7 +11,7 @@
   <img src="img/logo.jpg" alt="logo" width="20%">
 </p>
 
-## 🚀 PlantCAD2 Release!
+## [🚀 PlantCAD2 Release!](https://www.biorxiv.org/content/10.1101/2025.08.27.672609v1)
 We’re excited to announce [PlantCAD2](https://huggingface.co/collections/kuleshov-group/plantcad2-67e437e241a382671371a572) 🌱 — our new DNA foundation model for angiosperms.
 
 In addition, we’re also releasing a collection of [LoRA fine-tuned models](https://huggingface.co/collections/plantcad/fine-tuned-plantcad2-models-68b316a57616134fa7a1b6b6) 🎯, tailored for key downstream tasks including accessible chromatin, gene expression, and protein translation.
@@ -32,7 +32,7 @@ In addition, we’re also releasing a collection of [LoRA fine-tuned models](htt
   - [Option 2: Local installation](docs/local-install.md)
 - [Basic Usage](#basic-usage)
   - [Exploring model inputs and outputs](#exploring-model-inputs-and-outputs)
-  - [Zero-shot mutation effect scoring](#zero-shot-mutation-effect-scoring)
+  - [Zero-shot Scoring of Genomic Variants and Regions](#zero-shot-scoring-of-genomic-variants-and-regions)
   - [In-silico mutagenesis pipeline](#in-silico-mutagenesis-pipeline)
 - [Advanced Usage](#advanced-usage)
   - [Training XGBoost classifiers](#training-xgboost-classifiers)
