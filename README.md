@@ -191,8 +191,10 @@ python src/zero_shot_score.py \
 #   - `'all'`: Reports the individual log-likelihood ratios for each of the three alternative alleles relative to the reference.
 # - `-use-masking`: Whether to mask the central position(s) during inference.
 # - `-output-raw-prob`: Include raw probabilities in the output.
+```
 
-When analyzing the entire genome or large genomic regions, the `-step-size` parameter is very important for speeding up the analysis. For a detailed guide on this trade-off between speed and accuracy, see the **[Performance Tuning Guide](docs/step_size_genome_wide_llr.md)**.
+When analyzing the entire genome or large genomic regions, the `-step-size` parameter is very important for speeding up the analysis. For a detailed guide on this trade-off between speed and accuracy, see **[here](docs/step_size_genome_wide_llr.md)**.
+
 
 ### In-silico mutagenesis pipeline
 
