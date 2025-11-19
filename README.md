@@ -11,7 +11,7 @@
   <img src="img/logo.jpg" alt="logo" width="20%">
 </p>
 
-## 🚀 PlantCAD2 Release!
+## [🚀 PlantCAD2 Release!](https://www.biorxiv.org/content/10.1101/2025.08.27.672609v1)
 We’re excited to announce [PlantCAD2](https://huggingface.co/collections/kuleshov-group/plantcad2-67e437e241a382671371a572) 🌱 — our new DNA foundation model for angiosperms.
 
 In addition, we’re also releasing a collection of [LoRA fine-tuned models](https://huggingface.co/collections/plantcad/fine-tuned-plantcad2-models-68b316a57616134fa7a1b6b6) 🎯, tailored for key downstream tasks including accessible chromatin, gene expression, and protein translation.
@@ -30,9 +30,10 @@ In addition, we’re also releasing a collection of [LoRA fine-tuned models](htt
 - [Installation](#installation)
   - [Option 1: Google Colab (Recommended for beginners)](#option-1-google-colab-recommended-for-beginners)
   - [Option 2: Local installation](docs/local-install.md)
+  - [Option 3: Using Docker](docker/README.md)
 - [Basic Usage](#basic-usage)
   - [Exploring model inputs and outputs](#exploring-model-inputs-and-outputs)
-  - [Zero-shot mutation effect scoring](#zero-shot-mutation-effect-scoring)
+  - [Zero-shot Scoring of Genomic Variants and Regions](#zero-shot-scoring-of-genomic-variants-and-regions)
   - [In-silico mutagenesis pipeline](#in-silico-mutagenesis-pipeline)
 - [Advanced Usage](#advanced-usage)
   - [Training XGBoost classifiers](#training-xgboost-classifiers)
@@ -76,11 +77,8 @@ Pre-trained PlantCAD models have been uploaded to [HuggingFace 🤗](https://hug
 ### Option 1: Google Colab (Recommended for beginners)
 **No installation required!** Just open our [PlantCAD Google Colab notebook](https://colab.research.google.com/drive/1QW9Lgwra0vHQAOICE2hsIVcp6DKClyhO?usp=sharing) and start analyzing your data.
 
-**Setup steps:**
-1. Open the Colab link
-2. **Important:** Set runtime to GPU (`Runtime` → `Change runtime type` → `Hardware accelerator: GPU`)
-3. Run the cells to install dependencies
-4. Upload your data or use the provided examples
+### Option 2: Local installation
+See our [Local Installation Guide](docs/local-install.md).
 
 
 ## Basic Usage
@@ -130,31 +128,71 @@ averaged_embeddings = (forward + reverse) / 2
 print(averaged_embeddings.shape)
 ```
 
-### Zero-shot mutation effect scoring
+### Zero-shot Scoring of Genomic Variants and Regions
 
-Estimate the functional impact of genetic variants using PlantCAD's log-likelihood scores.
+The `zero_shot_score.py` script now provides unified functionality to estimate the functional impact of genetic variants or score genomic regions using PlantCAD's log-likelihood scores. It supports two primary modes:
 
-**Input format options:**
-1. **VCF files** (recommended): Standard variant format with reference genome
-2. **TSV files**: Pre-processed sequences with variant information
+1.  **Variant Scoring (VCF Input):** Scores specific genetic variants provided in a VCF file.
+2.  **Genome-Wide Region Scoring (BED Input):** Calculates log-likelihood ratios for all positions within specified genomic regions (BED file).
 
 ```bash
 # Download example reference genome
 wget https://download.maizegdb.org/Zm-B73-REFERENCE-NAM-5.0/Zm-B73-REFERENCE-NAM-5.0.fa.gz
 gunzip Zm-B73-REFERENCE-NAM-5.0.fa.gz
+```
 
-# Run zero-shot scoring
+```bash
+# VCF Input Mode
+# --- Example: Variant Scoring (VCF Input) ---
+# Estimate impact of specific variants from a VCF file.
+# Note: Only the first 8 columns of the VCF file (CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO) are strictly required.
 python src/zero_shot_score.py \
     -input-vcf examples/example_maize_snp.vcf \
     -input-fasta Zm-B73-REFERENCE-NAM-5.0.fa \
     -output scored_variants.vcf \
     -model 'kuleshov-group/PlantCaduceus_l32' \
     -device 'cuda:0'
+
+# Expected output for VCF mode:
+# - A new VCF file ('scored_variants.vcf') with PlantCAD scores added to the INFO field.
+# - Scores represent log-likelihood ratios between reference and alternative alleles.
+#   Low negative scores indicate potentially more deleterious mutations.
 ```
 
-**Expected output:**
-- Scored VCF file with PlantCAD scores in the INFO field
-- Scores represent log-likelihood ratios between reference and alternative allelesLow negative scores indicate more likely deleterious mutations
+```bash
+# BED Input Mode
+# --- Example: Genome-Wide Region Scoring (BED Input) ---
+# Calculate log-likelihood ratios for all positions within specified BED regions.
+# Note: You would need an example BED file for this.
+# For demonstration, creating a dummy BED file:
+echo -e "chr1\t1000\t1010\nchr1\t2000\t2015" > examples/example_regions.bed
+
+python src/zero_shot_score.py \
+    -input-bed examples/example_regions.bed \
+    -input-fasta Zm-B73-REFERENCE-NAM-5.0.fa \
+    -output genome_wide_scores.tsv \
+    -model 'kuleshov-group/PlantCaduceus_l32' \
+    -device 'cuda:0' \
+    -step-size 4 \
+    -aggregation average \
+    -use-masking \
+    -output-raw-prob
+
+# Expected output for BED mode:
+# - A tab-separated file ('genome_wide_scores.tsv') containing scores for each position.
+# - Output includes chromosome, start, end, reference allele, aggregated score,
+#   and optionally raw probabilities for all four nucleotides.
+# - `-step-size`: Number of positions to analyze per window.
+# - `-aggregation`: How to aggregate alternative allele scores.
+#   - `'max'`: Reports the maximum log-likelihood ratio among all three alternative alleles relative to the reference.
+#   - `'average'`: Reports the average log-likelihood ratio across all three alternative alleles relative to the reference.
+#   - `'all'`: Reports the individual log-likelihood ratios for each of the three alternative alleles relative to the reference.
+# - `-use-masking`: Whether to mask the central position(s) during inference.
+# - `-output-raw-prob`: Include raw probabilities in the output.
+```
+
+When analyzing the entire genome or large genomic regions, the `-step-size` parameter is very important for speeding up the analysis. For a detailed guide on this trade-off between speed and accuracy, see **[here](docs/step_size_genome_wide_llr.md)**.
+
 
 ### In-silico mutagenesis pipeline
 
