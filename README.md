@@ -30,6 +30,7 @@ In addition, we’re also releasing a collection of [LoRA fine-tuned models](htt
 - [Installation](#installation)
   - [Option 1: Google Colab (Recommended for beginners)](#option-1-google-colab-recommended-for-beginners)
   - [Option 2: Local installation](docs/local-install.md)
+  - [Option 3: Using Docker](docker/README.md)
 - [Basic Usage](#basic-usage)
   - [Exploring model inputs and outputs](#exploring-model-inputs-and-outputs)
   - [Zero-shot Scoring of Genomic Variants and Regions](#zero-shot-scoring-of-genomic-variants-and-regions)
@@ -76,11 +77,8 @@ Pre-trained PlantCAD models have been uploaded to [HuggingFace 🤗](https://hug
 ### Option 1: Google Colab (Recommended for beginners)
 **No installation required!** Just open our [PlantCAD Google Colab notebook](https://colab.research.google.com/drive/1QW9Lgwra0vHQAOICE2hsIVcp6DKClyhO?usp=sharing) and start analyzing your data.
 
-**Setup steps:**
-1. Open the Colab link
-2. **Important:** Set runtime to GPU (`Runtime` → `Change runtime type` → `Hardware accelerator: GPU`)
-3. Run the cells to install dependencies
-4. Upload your data or use the provided examples
+### Option 2: Local installation
+See our [Local Installation Guide](docs/local-install.md).
 
 
 ## Basic Usage
