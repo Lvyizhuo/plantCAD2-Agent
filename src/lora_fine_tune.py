@@ -361,6 +361,7 @@ def evaluate(
     task_type: str = "classification",
     num_labels: Optional[int] = None,
     batch_size: int = 32,
+    bf16: bool = True,
     sampling_rate: Optional[float] = None,
     seed: int = 42,
 ) -> None:
@@ -398,6 +399,7 @@ def evaluate(
         seed=seed,
         report_to="none",
         remove_unused_columns=False,
+        bf16=bf16,
     )
     compute = (
         compute_metrics_multilabel
@@ -418,6 +420,7 @@ def predict(
     output_file: str = "/tmp/predictions.csv",
     model_name: Optional[str] = None,
     task_type: str = "classification",
+    bf16: bool = True,
     num_labels: Optional[int] = None,
     batch_size: int = 32,
     sampling_rate: Optional[float] = None,
@@ -472,6 +475,7 @@ def predict(
         seed=seed,
         report_to="none",
         remove_unused_columns=False,
+        bf16=bf16,
     )
     trainer = Trainer(model=model, args=trainer_args)
 
