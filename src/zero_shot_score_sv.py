@@ -126,7 +126,7 @@ def extract_logits_at_indices(model, dataloader, device, tokenizer, indices_list
             
             # Check bounds
             seq_len = probs.shape[1]
-            valid_indices = [idx for idx in target_indices if idx < seq_len]
+            valid_indices = [idx for idx in target_indices if 0 <= idx < seq_len]
             if len(valid_indices) != len(target_indices):
                 logging.warning(f"Sequence {seq_idx}: Some indices out of bounds. Max len {seq_len}, requested {target_indices}")
             
@@ -356,6 +356,10 @@ def seq_from_vcf_sv(args):
             ins_seq = str(record.ALT[0].sequence)[1:]
             ins_len = len(ins_seq)
             
+            if ins_len >= args.contextSize:
+                logging.warning(f"Skipping Insertion at {chrom}:{pos} because length {ins_len} >= contextSize {args.contextSize}")
+                continue
+            
             # We need (contextSize - ins_len) / 2 context from each side to keep total size approx contextSize
             # Or we can just take 'half' from each side and let the sequence be longer?
             # The model handles variable length (up to max pos embeddings).
@@ -483,6 +487,10 @@ def main():
                 scores.append(0)
                 continue
             
+            if j >= len(r_probs) or j >= len(m_probs):
+                scores.append(0)
+                continue
+
             nt_idx = nucleotides.index(nt)
             
             p_ref = r_probs[j][nt_idx]
