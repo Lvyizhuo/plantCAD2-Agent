@@ -173,7 +173,7 @@ python src/zero_shot_score.py \
     -output genome_wide_scores.tsv \
     -model 'kuleshov-group/PlantCaduceus_l32' \
     -device 'cuda:0' \
-    -step-size 4 \
+    -step-size 1 \
     -aggregation average \
     -use-masking \
     -output-raw-prob
@@ -182,7 +182,7 @@ python src/zero_shot_score.py \
 # - A tab-separated file ('genome_wide_scores.tsv') containing scores for each position.
 # - Output includes chromosome, start, end, reference allele, aggregated score,
 #   and optionally raw probabilities for all four nucleotides.
-# - `-step-size`: Number of positions to analyze per window.
+# - `-step-size`: Number of positions to analyze per window, if step size is greater than 1, we recommend turn off masking!!!
 # - `-aggregation`: How to aggregate alternative allele scores.
 #   - `'max'`: Reports the maximum log-likelihood ratio among all three alternative alleles relative to the reference.
 #   - `'average'`: Reports the average log-likelihood ratio across all three alternative alleles relative to the reference.
