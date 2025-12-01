@@ -203,25 +203,9 @@ def seq_from_vcf_sv(args):
             # For pure deletion, ALT should be the first char of REF.
             # If complex indel, we just take REF and ALT as given.
             
-            # Start of deletion (exclusive of kept base)
-            # Actually, let's define the "flanks" we want to bring together.
-            # Left flank ends at POS (index pos).
-            # Right flank starts at POS + len(REF). (index pos + len(REF)) ??
-            # Wait, if REF=ATCG (len 4), POS=100. Indices: 100(A), 101(T), 102(C), 103(G).
-            # Next base is 104.
-            # If we delete TCG, we keep A(100) and join with 104.
-            # So Left flank is ...100. Right flank is 104...
-            # len(REF) = 4. pos + len(REF) = 100 + 4 = 104. Correct.
-            
             del_start_idx = pos + len(alt_seq_str) # First deleted base index
             del_end_idx = pos + len(ref_seq_str)   # First kept base index after deletion
             
-            # Center for RefSeq extraction
-            # To match the old pipeline, we need to use 1-indexed coordinates for center
-            # The old pipeline does: center = (VCF_start_1indexed + VCF_end_1indexed) // 2
-            # Then uses pysam.fetch(chrom, center - half, center + half) which is 0-indexed [start:end)
-            # VCF POS (1-indexed) corresponds to record.POS
-            # END (1-indexed) is in INFO or calculated from POS + len(REF) - 1
             if 'END' in record.INFO:
                 end_1indexed = record.INFO['END']
             else:
@@ -235,23 +219,26 @@ def seq_from_vcf_sv(args):
             
             # Bounds check
             chrom_len = len(fastaDict[chrom])
-            if ref_seq_start < 0: ref_seq_start = 0
-            if ref_seq_end > chrom_len: ref_seq_end = chrom_len
+            if ref_seq_start < 0:
+                logging.warning(f"Sequence {chrom}:{pos} out of bounds. Skipping.")
+                continue
+
+            if ref_seq_end > chrom_len:
+                logging.warning(f"Sequence {chrom}:{pos} out of bounds. Skipping.")
+                continue
+
+            if len(record.REF) >= half - flank:
+                logging.warning(f"Skipping Deletion at {chrom}:{pos} because length {len(record.REF)} >= half {half} - flank {flank}")
+                continue
             
             ref_seq_content = str(fastaDict[chrom].seq[ref_seq_start:ref_seq_end]).upper()
             
             # Pad if necessary (though usually context is large enough)
-            if len(ref_seq_content) < args.contextSize:
-                ref_seq_content = ref_seq_content.ljust(args.contextSize, 'N') # Simple padding
+            if len(ref_seq_content) != args.contextSize:
+                logging.error(f"Sequence {chrom}:{pos} has length {len(ref_seq_content)}, expected {args.contextSize}. Skipping.")
+                exit(1)
             
             # Indices in RefSeq corresponding to the flanks
-            # The old pipeline logic:
-            # del_start = POS - 1 (0-indexed, the kept base)
-            # del_end = END (0-indexed start of right flank)
-            # In RefSeq, left flank is [del_start - flank + 1, del_start + 1)
-            # right flank is [del_end, del_end + flank)
-            #
-            # Since RefSeq starts at ref_seq_start, we need to adjust:
             del_start_for_flanks = record.POS - 1  # 0-indexed position of kept base
             del_end_for_flanks = end_1indexed  # 0-indexed start of right flank
             
@@ -261,24 +248,11 @@ def seq_from_vcf_sv(args):
             ref_indices = ref_left_indices + ref_right_indices
             
             # MutSeq Construction
-            # Left part: ending at pos (inclusive).
-            # Right part: starting at del_end_idx.
-            # We want total length contextSize.
-            # We join them at the middle.
-            
-            # Left chunk: fetch from fasta, ending at POS (1-indexed).
-            # The old pipeline's MutSeq logic: del_start = POS - 1 (convert to 0-indexed)
-            # left = fasta.fetch(chrom, max(0, del_start - half), del_start)
-            # So it ends at del_start (exclusive), which is POS - 1 in 0-indexed
-            # Length should be half.
+
             del_start_0indexed = record.POS - 1
             mut_left_start = del_start_0indexed - half
             mut_left_end = del_start_0indexed
             
-            # Right chunk: fetch from fasta, starting at END (1-indexed, converted to 0-indexed)
-            # The old pipeline: del_end = END (1-indexed, but fetch uses 0-indexed start)
-            # right = fasta.fetch(chrom, del_end, del_end + half)
-            # So it starts at END in 0-indexed terms
             if 'END' in record.INFO:
                 del_end_0indexed = record.INFO['END']
             else:
@@ -333,73 +307,47 @@ def seq_from_vcf_sv(args):
             
             # Bounds check
             chrom_len = len(fastaDict[chrom])
-            if ref_seq_start < 0: ref_seq_start = 0
-            if ref_seq_end > chrom_len: ref_seq_end = chrom_len
+            if ref_seq_start < 0:
+                logging.warning(f"Sequence {chrom}:{pos} out of bounds. Skipping.")
+                continue
+            if ref_seq_end > chrom_len:
+                logging.warning(f"Sequence {chrom}:{pos} out of bounds. Skipping.")
+                continue
+            
+            ins_seq = str(record.ALT[0].sequence)[1:]
+            ins_len = len(ins_seq)
+            
+            if ins_len >= half - flank:
+                logging.warning(f"Skipping Insertion at {chrom}:{pos} because length {ins_len} >= half {half} - flank {flank}")
+                continue
             
             ref_seq_content = str(fastaDict[chrom].seq[ref_seq_start:ref_seq_end]).upper()
             
-            if len(ref_seq_content) < args.contextSize:
-                ref_seq_content = ref_seq_content.ljust(args.contextSize, 'N')
+            if len(ref_seq_content) != args.contextSize:
+                logging.error(f"Sequence {chrom}:{pos} has length {len(ref_seq_content)}, expected {args.contextSize}. Skipping.")
+                exit(1)
             
             # Ref Indices (Flanks around insertion point)
             # Anchor index relative to ref_seq_start
             anchor_idx_ref = (pos - 1) - ref_seq_start
-            
-            # Left Flank: [Anchor - flank + 1, Anchor + 1] (ends at anchor)
-            ref_left_indices = list(range(anchor_idx_ref - flank + 1, anchor_idx_ref + 1))
-            # Right Flank: [Anchor + 1, Anchor + 1 + flank] (starts after anchor)
-            ref_right_indices = list(range(anchor_idx_ref + 1, anchor_idx_ref + 1 + flank))
+            ref_left_indices = list(range(anchor_idx_ref - flank, anchor_idx_ref))
+            ref_right_indices = list(range(anchor_idx_ref + len(record.REF), anchor_idx_ref + flank + len(record.REF)))
             ref_indices = ref_left_indices + ref_right_indices
             
             # MutSeq Construction
             # Insert ALT[1:] after Anchor.
-            ins_seq = str(record.ALT[0].sequence)[1:]
-            ins_len = len(ins_seq)
             
-            if ins_len >= args.contextSize:
-                logging.warning(f"Skipping Insertion at {chrom}:{pos} because length {ins_len} >= contextSize {args.contextSize}")
-                continue
-            
-            # We need (contextSize - ins_len) / 2 context from each side to keep total size approx contextSize
-            # Or we can just take 'half' from each side and let the sequence be longer?
-            # The model handles variable length (up to max pos embeddings).
-            # But let's try to keep it centered and roughly contextSize.
-            
-            context_len = args.contextSize - ins_len
-            left_len = context_len // 2
-            right_len = context_len - left_len
-            
-            # Fetch Left: ending at pos (0-indexed) - i.e., including anchor
-            mut_left_start = pos - left_len
-            mut_left_end = pos
-            
-            # Fetch Right: starting at pos
-            mut_right_start = pos
-            mut_right_end = pos + right_len
-            
-            # Handle bounds
-            left_pad = ""
-            if mut_left_start < 0:
-                left_pad = "N" * (-mut_left_start)
-                mut_left_start = 0
-                
-            mut_left_seq = str(fastaDict[chrom].seq[mut_left_start:mut_left_end]).upper()
-            mut_left_seq = left_pad + mut_left_seq
-            
-            mut_right_seq = str(fastaDict[chrom].seq[mut_right_start:mut_right_end]).upper()
-            if len(mut_right_seq) < right_len:
-                mut_right_seq = mut_right_seq.ljust(right_len, 'N')
-            
-            mut_seq_content = mut_left_seq + ins_seq + mut_right_seq
-            
-            # Mut Indices
-            # Left Flank: End of mut_left_seq.
-            # Right Flank: Start of mut_right_seq (after insertion).
-            
-            # mut_left_seq length is left_len (padded).
-            mut_left_indices = list(range(len(mut_left_seq) - flank, len(mut_left_seq)))
-            mut_right_indices = list(range(len(mut_left_seq) + ins_len, len(mut_left_seq) + ins_len + flank))
+
+            mut_seq_left = str(fastaDict[chrom].seq[ref_seq_start:(center_1indexed-1)]).upper() + ins_seq
+            right_start = center_1indexed+len(record.REF)-1
+            right_end = right_start + (args.contextSize - len(mut_seq_left))
+            mut_seq_right = str(fastaDict[chrom].seq[right_start:right_end]).upper()
+            mut_seq_content = mut_seq_left + mut_seq_right
+
+            mut_left_indices = list(range(anchor_idx_ref - flank, anchor_idx_ref))
+            mut_right_indices = list(range(anchor_idx_ref + len(record.ALT[0]) - 1, anchor_idx_ref + flank + len(record.ALT[0]) - 1))
             mut_indices = mut_left_indices + mut_right_indices
+            
             
             ref_sequences.append(ref_seq_content)
             mut_sequences.append(mut_seq_content)
