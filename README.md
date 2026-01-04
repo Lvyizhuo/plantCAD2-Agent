@@ -40,7 +40,7 @@ In addition, we’re also releasing a collection of [LoRA fine-tuned models](htt
   - [Using pre-trained XGBoost classifiers](#using-pre-trained-xgboost-classifiers)
 - [Development and Training](#development-and-training)
   - [Pre-training PlantCAD](#pre-training-plantcad)
-  - [Performance benchmarks](#performance-benchmarks)
+- [Model Recommendations](#model-recommendations)
 - [Citation](#citation)
 
 ## [PlantCAD overview](https://plantcaduceus.github.io/)
@@ -54,17 +54,22 @@ PlantCaduceus, with its short name of **PlantCAD**, is a plant DNA LM based on t
 **For local usage:** See installation instructions [here](docs/local-install.md), then use `notebooks/examples.ipynb` to get started.
 
 ## Model summary
-Pre-trained PlantCAD models have been uploaded to [HuggingFace 🤗](https://huggingface.co/collections/kuleshov-group/plantcaduceus-512bp-len-665a229ee098db706a55e44a). Here's the summary of four PlantCAD models with different parameter sizes.
+Pre-trained models have been uploaded to **HuggingFace 🤗**: [PlantCAD](https://huggingface.co/collections/kuleshov-group/plantcaduceus-512bp-len-665a229ee098db706a55e44a) and [PlantCAD2](https://huggingface.co/collections/plantcad/fine-tuned-plantcad2-models-68b316a57616134fa7a1b6b6). 
+Here is the comparison between PlantCAD (v1) and PlantCAD2 models:
+
 | Model | Sequence Length | Model Size | Embedding Size |
-|-------|----------------|------------|----------------|
+| :--- | :--- | :--- | :--- |
+| **PlantCAD** | | | |
 | [PlantCaduceus_l20](https://huggingface.co/kuleshov-group/PlantCaduceus_l20) | 512bp | 20M | 384 |
 | [PlantCaduceus_l24](https://huggingface.co/kuleshov-group/PlantCaduceus_l24) | 512bp | 40M | 512 |
 | [PlantCaduceus_l28](https://huggingface.co/kuleshov-group/PlantCaduceus_l28) | 512bp | 128M | 768 |
 | [PlantCaduceus_l32](https://huggingface.co/kuleshov-group/PlantCaduceus_l32) | 512bp | 225M | 1024 |
+| **PlantCAD2** | | | |
+| [PlantCAD2-Small](https://huggingface.co/kuleshov-group/PlantCAD2-Small-l24-d0768) | 8192bp | 88M | 768 |
+| [PlantCAD2-Medium](https://huggingface.co/kuleshov-group/PlantCAD2-Medium-l48-d1024) | 8192bp | 311M | 1024 |
+| [PlantCAD2-Large](https://huggingface.co/kuleshov-group/PlantCAD2-Large-l48-d1536) | 8192bp | 694M | 1536 |
 
-**Model Selection Guide:**
-- PlantCaduceus_l20: Good for testing and quick analysis
-- PlantCaduceus_l32: **Recommended** for research and production (best performance)
+*Note: For PlantCAD, the maximum sequence length is 512bp. For PlantCAD2, it is 8,192bp.*
 
 ## Prerequisites and System Requirements
 
@@ -127,6 +132,7 @@ reverse = reverse[..., ::-1]
 averaged_embeddings = (forward + reverse) / 2
 print(averaged_embeddings.shape)
 ```
+
 
 ### Zero-shot Scoring of Genomic Variants and Regions
 
@@ -295,64 +301,51 @@ WANDB_PROJECT=PlantCAD python src/HF_pre_train.py \
 - `dataset_name`: Your custom dataset or use our Angiosperm dataset
 - `max_steps`: Total training steps (adjust based on dataset size)
 - `learning_rate`: 2E-4 works well for most cases
-- Batch sizes: Adjust based on your GPU memory
+- `Batch sizes`: Adjust based on your GPU memory
 
-### Performance benchmarks
-The inference speed is highly dependent on the model size and GPU type. Performance with 5,000 SNPs:
+## Model Recommendations
+### Inference speed
 
-<table>
-    <tr>
-        <th>Model</th>
-        <th>H100</th>
-        <th>A100</th>
-        <th>A6000</th>
-        <th>3090</th>
-        <th>A5000</th>
-        <th>A40</th>
-        <th>2080</th>
-    </tr>
-    <tr>
-        <td>PlantCaduceus_l20</td>
-        <td>16s</td>
-        <td>19s</td>
-        <td>24s</td>
-        <td>25s</td>
-        <td>25s</td>
-        <td>26s</td>
-        <td>44s</td>
-    </tr>
-    <tr>
-        <td>PlantCaduceus_l24</td>
-        <td>21s</td>
-        <td>27s</td>
-        <td>35s</td>
-        <td>37s</td>
-        <td>42s</td>
-        <td>38s</td>
-        <td>71s</td>
-    </tr>
-    <tr>
-        <td>PlantCaduceus_l28</td>
-        <td>31s</td>
-        <td>43s</td>
-        <td>62s</td>
-        <td>69s</td>
-        <td>77s</td>
-        <td>67s</td>
-        <td>137s</td>
-    </tr>
-    <tr>
-        <td>PlantCaduceus_l32</td>
-        <td>47s</td>
-        <td>66s</td>
-        <td>94s</td>
-        <td>116s</td>
-        <td>130s</td>
-        <td>107s</td>
-        <td>232s</td>
-    </tr>
-</table>
+Here are the inference speed benchmark results for PlantCaduceus (v1) and PlantCAD2 models:
+
+| Model | Seq Len | Batch | Peak memory (GB) | Seq/s | Tokens/s |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| PlantCaduceus_l20 | 512 | 16 | 0.31 | 400.28 | 204,942 |
+| PlantCaduceus_l20 | 512 | 32 | 0.56 | 640.86 | 328,118 |
+| PlantCaduceus_l20 | 512 | 64 | 1.01 | 663.04 | 339,475 |
+| PlantCaduceus_l24 | 512 | 16 | 0.43 | 335.88 | 171,970 |
+| PlantCaduceus_l24 | 512 | 32 | 0.75 | 392.83 | 201,140 |
+| PlantCaduceus_l24 | 512 | 64 | 1.37 | 407.38 | 208,577 |
+| PlantCaduceus_l28 | 512 | 16 | 0.77 | 207.61 | 106,295 |
+| PlantCaduceus_l28 | 512 | 32 | 1.27 | 213.99 | 109,563 |
+| PlantCaduceus_l28 | 512 | 64 | 2.22 | 219.97 | 112,626 |
+| PlantCaduceus_l32 | 512 | 16 | 1.1 | 130.56 | 66,848 |
+| PlantCaduceus_l32 | 512 | 32 | 1.71 | 132.62 | 67,902 |
+| PlantCaduceus_l32 | 512 | 64 | 2.97 | 135.05 | 69,144 |
+| PlantCAD2-Small | 8192 | 16 | 6.56 | 19.61 | 160,653 |
+| PlantCAD2-Small | 8192 | 32 | 12.76 | 19.26 | 157,767 |
+| PlantCAD2-Small | 8192 | 64 | 24.89 | 19 | 155,649 |
+| PlantCAD2-Medium | 8192 | 16 | 9.62 | 6.88 | 56,386 |
+| PlantCAD2-Medium | 8192 | 32 | 17.62 | 6.76 | 55,342 |
+| PlantCAD2-Medium | 8192 | 64 | 33.62 | 6.79 | 55,636 |
+| PlantCAD2-Large | 8192 | 16 | 14.89 | 3.92 | 32,111 |
+| PlantCAD2-Large | 8192 | 32 | 26.95 | 3.87 | 31,741 |
+| PlantCAD2-Large | 8192 | 64 | 51.09 | 3.89 | 31,833 |
 
 
-## Citation
-Zhai, J., Gokaslan, A., Schiff, Y., Berthel, A., Liu, Z. Y., Lai, W. L., Miller, Z. R., Scheben, A., Stitzer, M. C., Romay, M. C., Buckler, E. S., & Kuleshov, V. (2025). Cross-species modeling of plant genomes at single nucleotide resolution using a pretrained DNA language model. Proceedings of the National Academy of Sciences, 122(24), e2421738122. https://doi.org/10.1073/pnas.2421738122
+### Which model to use? 
+#### Variant Effect Analysis
+
+- **Balanced Performance:** For a good trade-off between speed and accuracy, we recommend using **PlantCaduceus_l32** with a 512bp context window.
+- **Maximum Accuracy:** If computational resources are not a constraint, we recommend using **PlantCAD2-Large** with a context window larger than 1024bp to achieve the best performance.
+
+#### Other Downstream Tasks
+
+- **Long Sequences:** For tasks requiring sequences longer than 512bp, we highly recommend fine-tuning **PlantCAD2** models. PlantCAD (v1) models are limited to a 512bp context window, whereas PlantCAD2 supports up to 8192bp.
+
+## Citations
+
+If you find PlantCAD useful for your research, please consider citing our paper:
+
+- Zhai, J., Gokaslan, A., Schiff, Y., Berthel, A., Liu, Z. Y., Lai, W. L., Miller, Z. R., Scheben, A., Stitzer, M. C., Romay, M. C., Buckler, E. S., & Kuleshov, V. (2025). Cross-species modeling of plant genomes at single nucleotide resolution using a pretrained DNA language model. Proceedings of the National Academy of Sciences, 122(24), e2421738122. https://doi.org/10.1073/pnas.2421738122
+- Zhai J., Gokaslan A., Hsu SK., Chen SP., Liu ZY., Marroquin E., Czech E., Cannon B., Berthel A., Romay MC., Pennell M., Kuleshov V.* Buckler ES*. PlantCAD2: A Long-Context DNA Language Model for Cross-Species Functional Annotation in Angiosperms. bioRxiv. 2025. Nov 19. doi: https://doi.org/10.1101/2025.08.27.672609
