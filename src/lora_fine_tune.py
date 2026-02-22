@@ -86,7 +86,12 @@ def tokenize(
         if output_path is None:
             output_path = str(Path(data_dir).with_suffix(".parquet"))
         logger.info(f"Loading local TSV: {data_dir}")
-        dataset = Dataset.from_csv(data_dir, sep="\t")
+        if task_type == "multi_label":
+            dtype = {label_column: str, label_column.capitalize(): str, label_column.upper(): str}
+            df = pd.read_csv(data_dir, sep="\t", dtype=dtype)
+            dataset = Dataset.from_pandas(df, preserve_index=False)
+        else:
+            dataset = Dataset.from_csv(data_dir, sep="\t")
 
     # normalize column names to lowercase
     for c in list(dataset.column_names):
@@ -306,7 +311,75 @@ def train(
     train_dataset = Dataset.from_parquet(str(Path(train_dir)), keep_in_memory=False)
     eval_dataset = Dataset.from_parquet(str(Path(valid_dir)), keep_in_memory=False)
 
-    
+    # For multi_label: ensure labels are stored as 'labels' column with numeric lists.
+    # Handles: string labels ("000110101"), list labels, or renamed columns.
+    if task_type == "multi_label":
+        for name, ds in [("train", train_dataset), ("eval", eval_dataset)]:
+            # Find the label column
+            if "labels" in ds.column_names:
+                lbl_col = "labels"
+            elif "label" in ds.column_names:
+                lbl_col = "label"
+            else:
+                raise ValueError(f"No 'label' or 'labels' column found in {name} dataset")
+
+            # Check actual data format from first sample
+            sample_label = ds[0][lbl_col]
+            if isinstance(sample_label, str):
+                logger.info(f"Converting string labels to numeric lists in {name} dataset")
+                def _convert_str(examples, col=lbl_col):
+                    return {"labels": [[int(c) for c in str(v)] for v in examples[col]]}
+                remove = [lbl_col] if lbl_col != "labels" else []
+                ds = ds.map(_convert_str, batched=True, remove_columns=remove)
+            elif isinstance(sample_label, (list, np.ndarray)):
+                if lbl_col != "labels":
+                    ds = ds.rename_column(lbl_col, "labels")
+                logger.info(f"Labels in {name} dataset are already lists (len={len(sample_label)})")
+            elif isinstance(sample_label, (int, np.integer)):
+                if num_labels is None:
+                    raise ValueError(
+                        f"Labels in {name} are scalars (type=int) — likely multi-label strings "
+                        f"parsed as integers. Provide --num_labels so we can zero-pad them back."
+                    )
+                logger.info(
+                    f"Converting int labels to {num_labels}-digit zero-padded binary vectors "
+                    f"in {name} dataset (e.g. int 0 -> '{'0' * num_labels}' -> [0]*{num_labels})"
+                )
+                def _convert_int(examples, col=lbl_col, nl=num_labels):
+                    return {"labels": [[int(c) for c in str(v).zfill(nl)] for v in examples[col]]}
+                remove = [lbl_col] if lbl_col != "labels" else []
+                ds = ds.map(_convert_int, batched=True, remove_columns=remove)
+            else:
+                raise ValueError(
+                    f"Labels in {name} dataset have unsupported type ({type(sample_label).__name__}). "
+                    f"Expected string, list of ints, or int (zero-padded multi-label)."
+                )
+
+            # Verify label dimension matches num_labels
+            verified_sample = ds[0]["labels"]
+            sample_len = len(verified_sample) if isinstance(verified_sample, (list, np.ndarray)) else None
+            if sample_len is not None and num_labels is not None and sample_len != num_labels:
+                raise ValueError(
+                    f"Label length mismatch in {name}: each label has {sample_len} elements "
+                    f"but num_labels={num_labels}"
+                )
+
+            if name == "train":
+                train_dataset = ds
+            else:
+                eval_dataset = ds
+
+    # Remove metadata columns the collator can't handle
+    for name, ds in [("train", train_dataset), ("eval", eval_dataset)]:
+        extra_cols = [c for c in ds.column_names if c not in {"input_ids", "label", "labels", "attention_mask"}]
+        if extra_cols:
+            logger.info(f"Removing extra columns from {name} dataset: {extra_cols}")
+            ds = ds.remove_columns(extra_cols)
+            if name == "train":
+                train_dataset = ds
+            else:
+                eval_dataset = ds
+
 
     logger.info(f"Train dataset: {train_dataset}")
     logger.info(f"Eval dataset: {eval_dataset}")
@@ -613,6 +686,12 @@ def load_base_model(model_name: str, task_type: str, num_labels: Optional[int]) 
             return original_forward(input_ids=kwargs["input_ids"])  # inference without labels
         if task_type == "multi_label":
             labels = labels.float()
+            if labels.dim() == 1:
+                raise ValueError(
+                    f"Multi-label labels have wrong shape {tuple(labels.shape)}. "
+                    f"Expected [batch_size, {num_labels}]. "
+                    f"Ensure your dataset's label column contains lists of ints, not scalars."
+                )
         return original_forward(input_ids=kwargs["input_ids"], labels=labels)
 
     base_model.forward = forward_with_labels
