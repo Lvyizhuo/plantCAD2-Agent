@@ -2,9 +2,11 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/kuleshov-group/PlantCaduceus)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/kuleshov-group/PlantCaduceus)
 [![PlantCAD](https://zenodo.org/badge/DOI/10.1073/pnas.2421738122.svg)](https://doi.org/10.1073/pnas.2421738122)
-![PlantCAD Downloads](https://img.shields.io/badge/dynamic/json?color=blue&label=PlantCAD+downloads&query=downloads&url=https://huggingface.co/api/models/kuleshov-group/PlantCaduceus_l32)
 [![PlantCAD2](https://zenodo.org/badge/DOI/10.1101/2025.08.27.672609.svg)](https://doi.org/10.1101/2025.08.27.672609)
-![PlantCAD2 Downloads](https://img.shields.io/badge/dynamic/json?color=blue&label=PlantCAD2+downloads&query=downloads&url=https://huggingface.co/api/models/kuleshov-group/PlantCAD2-Small-l24-d0768)
+![PlantCAD Downloads](https://img.shields.io/badge/dynamic/json?color=blue&label=PlantCAD&query=downloadsAllTime&url=https://huggingface.co/api/models/kuleshov-group/PlantCaduceus_l32%3Fexpand%3DdownloadsAllTime)
+![PlantCAD2-Small](https://img.shields.io/badge/dynamic/json?color=blue&label=PlantCAD2-Small&query=downloadsAllTime&url=https://huggingface.co/api/models/kuleshov-group/PlantCAD2-Small-l24-d0768%3Fexpand%3DdownloadsAllTime)
+![PlantCAD2-Medium](https://img.shields.io/badge/dynamic/json?color=blue&label=PlantCAD2-Medium&query=downloadsAllTime&url=https://huggingface.co/api/models/kuleshov-group/PlantCAD2-Medium-l48-d1024%3Fexpand%3DdownloadsAllTime)
+![PlantCAD2-Large](https://img.shields.io/badge/dynamic/json?color=blue&label=PlantCAD2-Large&query=downloadsAllTime&url=https://huggingface.co/api/models/kuleshov-group/PlantCAD2-Large-l48-d1536%3Fexpand%3DdownloadsAllTime)
 [![PlantCAD 🤗](https://img.shields.io/badge/🤗-PlantCAD-yellow.svg?style=flat)](https://huggingface.co/collections/kuleshov-group/plantcaduceus-512bp-len-665a229ee098db706a55e44a)
 [![PlantCAD2 🤗](https://img.shields.io/badge/🤗-PlantCAD2-yellow.svg?style=flat)](https://huggingface.co/collections/kuleshov-group/plantcad2-67e437e241a382671371a572)
 
