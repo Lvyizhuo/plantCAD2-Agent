@@ -12,6 +12,10 @@ import torch
 from peft import PeftModel
 
 from modules.model_loader import load_mlm_model, load_cls_model, load_lora_adapter
+from modules.embedding import extract_embeddings
+from modules.variant_score import score_variant as _score_variant
+from modules.lora_predict import predict_with_lora
+from modules.masked_predict import masked_predict as _masked_predict
 
 logger = logging.getLogger(__name__)
 
@@ -159,16 +163,11 @@ class PlantCAD2Engine:
     # ------------------------------------------------------------------
 
     def get_embeddings(self, sequence: str, normalize: bool = True) -> dict:
-        """Extract per-position embeddings for a DNA sequence.
-
-        Args:
-            sequence: DNA sequence (ACGT, max 8192bp).
-            normalize: Whether to L2-normalize the embeddings.
-
-        Returns:
-            Dict with 'embeddings', 'shape', 'sequence_length'.
-        """
-        raise NotImplementedError("embedding module not yet implemented")
+        """Extract per-position embeddings for a DNA sequence."""
+        return extract_embeddings(
+            self.mlm_model, self.tokenizer, sequence,
+            device=self.device, normalize=normalize,
+        )
 
     def score_variant(
         self,
@@ -177,40 +176,27 @@ class PlantCAD2Engine:
         ref_allele: str,
         alt_alleles: list[str],
     ) -> dict:
-        """Score variant effect using zero-shot masked prediction.
-
-        Args:
-            sequence: Context DNA sequence (contains the variant position).
-            position: 0-based position of the variant in the sequence.
-            ref_allele: Reference allele (A/C/G/T).
-            alt_alleles: List of alternative alleles.
-
-        Returns:
-            Dict with 'scores', 'ref_prob', 'alt_probs'.
-        """
-        raise NotImplementedError("variant_score module not yet implemented")
+        """Score variant effect using zero-shot masked prediction."""
+        return _score_variant(
+            self.mlm_model, self.tokenizer, sequence,
+            position, ref_allele, alt_alleles,
+            device=self.device,
+        )
 
     def predict_function(self, sequence: str, task: str) -> dict:
-        """Run a LoRA fine-tuned task prediction.
-
-        Args:
-            sequence: DNA sequence.
-            task: Task name from TASK_REGISTRY.
-
-        Returns:
-            Dict with 'task', 'prediction', 'probability' (classification)
-            or 'prediction' (regression).
-        """
-        raise NotImplementedError("lora_predict module not yet implemented")
+        """Run a LoRA fine-tuned task prediction."""
+        lora_model = self._get_lora_model(task)
+        _, task_type, _, _ = TASK_REGISTRY[task]
+        result = predict_with_lora(
+            lora_model, self.tokenizer, sequence,
+            task_type=task_type, device=self.device,
+        )
+        result["task"] = task
+        return result
 
     def masked_predict(self, sequence: str, positions: list[int]) -> dict:
-        """Predict nucleotide probabilities at specified positions.
-
-        Args:
-            sequence: DNA sequence.
-            positions: List of 0-based positions to mask and predict.
-
-        Returns:
-            Dict with 'predictions' mapping position -> {A, C, G, T} probs.
-        """
-        raise NotImplementedError("masked_predict module not yet implemented")
+        """Predict nucleotide probabilities at specified positions."""
+        return _masked_predict(
+            self.mlm_model, self.tokenizer, sequence,
+            positions, device=self.device,
+        )
