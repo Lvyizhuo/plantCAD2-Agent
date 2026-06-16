@@ -54,7 +54,7 @@ def predict_with_lora(
     )
     input_ids = encoding["input_ids"].to(device)
 
-    # Forward pass
+    # Forward pass (attention_mask filtered by the wrapped forward in model_loader)
     with torch.inference_mode():
         outputs = model(input_ids=input_ids)
         logits = outputs.logits

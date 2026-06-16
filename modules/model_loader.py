@@ -128,6 +128,17 @@ def load_cls_model(
 
     model.to(device)
     model.eval()
+
+    # Caduceus forward() does not accept attention_mask, but PeftModel
+    # automatically injects it. Wrap forward to strip the unsupported kwarg.
+    _original_forward = model.forward
+
+    def _forward_no_attn_mask(*args, **kwargs):
+        kwargs.pop("attention_mask", None)
+        return _original_forward(*args, **kwargs)
+
+    model.forward = _forward_no_attn_mask
+
     logger.info("CLS model loaded successfully")
     return model
 
