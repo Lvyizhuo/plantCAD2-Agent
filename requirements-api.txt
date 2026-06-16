@@ -1,8 +1,0 @@
-# PlantCAD2 Inference API dependencies
-# Install base model dependencies from the repo first, then add:
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.0.0
-peft>=0.7.0
-transformers>=4.40.0
-torch>=2.0.0
