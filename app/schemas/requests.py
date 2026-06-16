@@ -51,6 +51,8 @@ class PredictResponse(BaseModel):
     task: str
     prediction: Union[str, float]
     probability: Optional[float] = None
+    probabilities: Optional[list[float]] = None
+    num_labels: Optional[int] = None
 
 
 # --- Masked Predict ---

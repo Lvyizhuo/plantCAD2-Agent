@@ -20,6 +20,8 @@ async def predict(body: PredictRequest, request: Request):
             task=result["task"],
             prediction=result["prediction"],
             probability=result.get("probability"),
+            probabilities=result.get("probabilities"),
+            num_labels=result.get("num_labels"),
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

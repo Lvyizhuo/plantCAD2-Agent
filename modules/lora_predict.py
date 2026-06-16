@@ -60,14 +60,24 @@ def predict_with_lora(
         logits = outputs.logits
 
     if task_type == "classification":
-        probs = torch.nn.functional.softmax(logits.cpu(), dim=1).numpy()[0]
-        # Binary classification: index 0 = NEGATIVE, index 1 = POSITIVE
-        positive_prob = float(probs[1])
-        prediction = "POSITIVE" if positive_prob >= 0.5 else "NEGATIVE"
-        return {
-            "prediction": prediction,
-            "probability": positive_prob,
-        }
+        num_labels = logits.shape[-1]
+        if num_labels > 2:
+            # Multi-label classification (e.g. cell_type with 92 labels)
+            probs = torch.sigmoid(logits.cpu()).numpy()[0]
+            return {
+                "prediction": "MULTI_LABEL",
+                "probabilities": [float(p) for p in probs],
+                "num_labels": num_labels,
+            }
+        else:
+            # Binary classification
+            probs = torch.nn.functional.softmax(logits.cpu(), dim=1).numpy()[0]
+            positive_prob = float(probs[1])
+            prediction = "POSITIVE" if positive_prob >= 0.5 else "NEGATIVE"
+            return {
+                "prediction": prediction,
+                "probability": positive_prob,
+            }
     elif task_type == "regression":
         predicted_value = float(logits.cpu().numpy().squeeze())
         return {
