@@ -1,3 +1,5 @@
+models/
+
 # Ignored by request
 AGENTS.md
 tmp/
