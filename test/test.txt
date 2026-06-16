@@ -114,8 +114,8 @@ curl -X POST http://localhost:8005/predict \
     "task": "acr_cell_type"
   }'
 
-预期返回：
-{"task":"acr_cell_type","prediction":"POSITIVE","probability":0.xx}
+预期返回（多标签分类，92 个细胞类型的概率）：
+{"task":"acr_cell_type","prediction":"MULTI_LABEL","probabilities":[0.12,0.03,...],"num_labels":92}
 
 
 ----------------------------------------
