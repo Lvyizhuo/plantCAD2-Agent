@@ -4,11 +4,13 @@ Extracted and adapted from src/zero_shot_score.py and src/lora_fine_tune.py.
 Supports local/offline model loading without HuggingFace remote access.
 """
 
+import inspect
 import logging
 from pathlib import Path
 from typing import Optional
 
 import torch
+from safetensors import safe_open
 from transformers import (
     AutoModelForMaskedLM,
     AutoModelForSequenceClassification,
@@ -129,18 +131,32 @@ def load_cls_model(
     model.to(device)
     model.eval()
 
-    # Caduceus forward() does not accept attention_mask, but PeftModel
-    # automatically injects it. Wrap forward to strip the unsupported kwarg.
+    # Caduceus forward() does not accept standard HF kwargs like attention_mask
+    # or output_attentions, but PeftModel injects them automatically.
+    # Wrap forward to strip all unsupported kwargs.
     _original_forward = model.forward
+    _supported_params = set(inspect.signature(_original_forward).parameters.keys())
 
-    def _forward_no_attn_mask(*args, **kwargs):
-        kwargs.pop("attention_mask", None)
-        return _original_forward(*args, **kwargs)
+    def _forward_filtered(*args, **kwargs):
+        filtered = {k: v for k, v in kwargs.items() if k in _supported_params}
+        return _original_forward(*args, **filtered)
 
-    model.forward = _forward_no_attn_mask
+    model.forward = _forward_filtered
 
     logger.info("CLS model loaded successfully")
     return model
+
+
+def detect_adapter_num_labels(lora_path: str) -> int:
+    """Detect num_labels from adapter weights by reading score.weight shape."""
+    adapter_file = Path(lora_path) / "adapter_model.safetensors"
+    if not adapter_file.exists():
+        return 2  # default binary classification
+    with safe_open(str(adapter_file), framework="pt") as f:
+        for key in f.keys():
+            if key.endswith("score.weight"):
+                return f.get_tensor(key).shape[0]
+    return 2
 
 
 def load_lora_adapter(
