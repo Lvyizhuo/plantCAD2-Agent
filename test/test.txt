@@ -222,3 +222,71 @@ A: mamba-ssm CUDA kernel 不支持 BFloat16，已强制 CLS 模型使用 float16
 
 Q: 模型加载很慢
 A: 首次加载约 1-2 分钟属正常，后续请求会很快
+
+
+六、自动化测试脚本
+----------------------------------------
+
+项目提供了两个自动化测试脚本，用于批量测试 API 接口并记录资源占用。
+
+
+6.1) 基础功能测试脚本 test_base_features.py
+----------------------------------------
+测试三个基础功能：嵌入提取、变异打分、掩码预测。
+使用官方示例数据，自动记录耗时和 GPU 内存占用。
+
+用法：
+    # 默认测试 localhost:8005
+    python scripts/test_base_features.py
+
+    # 指定服务地址和端口
+    python scripts/test_base_features.py --host 36.133.115.221 --port 8005
+
+测试内容：
+    1. 健康检查 GET /health
+    2. 嵌入提取 POST /embeddings
+    3. 变异打分 POST /variant-score
+    4. 掩码预测 POST /masked-predict
+
+输出：
+    - 控制台打印测试结果和资源占用
+    - 日志保存在 logs/base_features/YYYYMMDD_HHMMSS/ 目录
+    - 每个测试生成独立的 JSON 日志文件
+
+
+6.2) LoRA 任务测试脚本 test_lora_tasks.py
+----------------------------------------
+测试七个 LoRA 下游任务，使用 test/PlantCAD2_fine_tuning_tasks/ 中的官方测试数据集。
+
+用法：
+    # 测试所有任务，每个测试文件采样 10 条
+    python scripts/test_lora_tasks.py
+
+    # 指定采样数量（0 表示测试全部数据）
+    python scripts/test_lora_tasks.py --num_samples 20
+
+    # 只测试某个任务
+    python scripts/test_lora_tasks.py --task acr_arabidopsis
+
+    # 指定服务地址
+    python scripts/test_lora_tasks.py --host 36.133.115.221 --port 8005
+
+支持的任务名称：
+    - acr_arabidopsis      拟南芥 ACR 预测（分类）
+    - acr_nine_species     九物种 ACR 预测（分类）
+    - acr_cell_type        细胞类型特异性 ACR（多标签分类）
+    - expression_on_off    叶片表达量开/关（分类）
+    - expression_absolute  叶片表达量绝对值（回归）
+    - translation_on_off   叶片翻译效率开/关（分类）
+    - translation_absolute 叶片翻译效率绝对值（回归）
+
+输出：
+    - 控制台打印每个任务的测试进度和准确率（分类任务）
+    - 日志保存在 logs/lora_tasks/YYYYMMDD_HHMMSS/ 目录
+    - 每个任务生成 summary.json 和 details.json
+    - 最终生成 overall_summary.json 汇总所有任务结果
+
+注意：
+    - 测试数据需要从原仓库克隆 LFS 文件：git lfs pull
+    - 或手动下载 test/PlantCAD2_fine_tuning_tasks/ 目录
+    - 已在 .gitignore 中忽略该目录
