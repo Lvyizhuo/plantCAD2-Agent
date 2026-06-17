@@ -81,10 +81,15 @@ def get_test_files(task_data_dir):
 
 
 def load_samples(parquet_path, num_samples):
-    """从 parquet 文件中加载指定数量的样本。"""
+    """从 parquet 文件中加载样本。
+
+    num_samples=0 表示加载全部数据。
+    """
     df = pd.read_parquet(parquet_path)
     if len(df) == 0:
         return []
+    if num_samples == 0:
+        return df.to_dict("records")
     # 均匀采样
     if len(df) <= num_samples:
         samples = df
@@ -230,7 +235,7 @@ def main():
     parser = argparse.ArgumentParser(description="测试 PlantCAD2 七个 LoRA 下游任务")
     parser.add_argument("--host", default="localhost", help="服务地址")
     parser.add_argument("--port", type=int, default=8005, help="服务端口")
-    parser.add_argument("--num_samples", type=int, default=10, help="每个测试文件采样数量")
+    parser.add_argument("--num_samples", type=int, default=10, help="每个测试文件采样数量，0 表示测试全部数据")
     parser.add_argument("--task", default=None, help="只测试指定任务（如 acr_arabidopsis）")
     args = parser.parse_args()
 
@@ -241,7 +246,7 @@ def main():
 
     print(f"测试目标: {base_url}")
     print(f"日志目录: {log_dir}")
-    print(f"采样数量: {args.num_samples} 条/文件")
+    print(f"采样数量: {'全部' if args.num_samples == 0 else f'{args.num_samples} 条/文件'}")
 
     # 检查服务
     try:
