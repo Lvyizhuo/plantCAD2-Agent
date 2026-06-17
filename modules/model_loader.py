@@ -99,7 +99,8 @@ def load_cls_model(
     Args:
         model_path: Local path to the base model directory.
         device: Target device.
-        dtype: Model dtype. If None, auto-detect optimal dtype.
+        dtype: Model dtype. If None, defaults to float16 (mamba-ssm CUDA kernels
+            do not support bfloat16, and LoRA adapter weights are stored in float32).
         num_labels: Number of output labels (default 2 for binary classification).
         problem_type: "regression", "multi_label_classification", or None.
 
@@ -107,7 +108,9 @@ def load_cls_model(
         The classification model.
     """
     if dtype is None:
-        dtype = get_optimal_dtype()
+        # mamba-ssm CUDA kernels do not support BFloat16, so we use float16
+        # instead of get_optimal_dtype() which returns bfloat16 on A100.
+        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
     logger.info(f"Loading CLS model from {model_path} with dtype={dtype}")
 
