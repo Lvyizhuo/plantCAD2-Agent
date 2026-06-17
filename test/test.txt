@@ -15,7 +15,7 @@ pip install fastapi uvicorn[standard]
 二、启动服务（前台运行，用 GPU 2）
 ----------------------------------------
 cd /root/ntt/lvyizhuo/PlantCaduceus
-CUDA_VISIBLE_DEVICES=2 PLANTCAD2_DEVICE=cuda:0 uvicorn app.main:app --host 0.0.0.0 --port 8005
+CUDA_VISIBLE_DEVICES=3 PLANTCAD2_DEVICE=cuda:0 uvicorn app.main:app --host 0.0.0.0 --port 8005
 
 说明：
 - CUDA_VISIBLE_DEVICES=2 让进程只看到第 3 块 GPU（物理卡 2）
