@@ -12,6 +12,15 @@
 
 ## 功能分类
 
+> **通俗说明**
+>
+> PlantCAD2 是一个"读过大量植物 DNA 的语言模型"。就像 ChatGPT 理解人类语言一样，它理解 DNA 的"语法"。基于这个能力，它能做以下事情：
+>
+> - **嵌入提取**：把一段 DNA 序列变成一组数字（向量），方便计算机比较和分析不同序列之间的相似性。
+> - **变异打分**：DNA 中某个碱基发生了变化（比如 A 变成了 G），模型评估这个变化是"正常的"还是"异常的"。分数越高表示变化越罕见，可能意味着功能影响越大。
+> - **掩码预测**：把 DNA 中某个位置遮住，让模型猜那里应该是什么碱基。如果模型很确定（某个碱基概率 > 0.9），说明这个位置在进化上很保守，不太能随便变。
+> - **LoRA 功能预测**：在基座模型基础上叠加一个"专项微调模块"，让它能预测具体的生物学功能。不同模块对应不同任务（见下表）。
+
 | 端点 | 功能 | 模型要求 | 说明 |
 |------|------|----------|------|
 | GET /health | 健康检查 | — | 服务状态检测 |
@@ -88,6 +97,8 @@
 
 **POST** `/variant-score`
 
+> **通俗说明**：每个人的 DNA 都会有少量差异（变异），大多数是无害的，但有些会导致疾病或性状改变。这个功能让模型评估一个具体的碱基变化是否"罕见"——如果模型认为这个位置"本来就应该长这样"的概率很低，说明这个变化可能有生物学意义。
+
 零样本评估单核苷酸变异（SNV）的致病性。方法：遮盖目标位置，比较参考碱基和变异碱基的预测概率，计算对数似然比（LLR）。
 
 ### 请求
@@ -159,15 +170,42 @@
 
 ### 可选任务
 
+#### ACR 预测（活跃顺式调控元件）
+
+> **通俗说明**：ACR（Accessible Chromatin Region）是 DNA 中"开放"的区域。你可以把 DNA 想象成一本书，有些章节被折起来了（关闭/压缩），有些是翻开的（开放）。只有翻开的部分才能被细胞"读取"并调控基因的开关。ACR 预测就是判断一段 DNA 是否属于这种"翻开的"调控区域。
+>
+> - **POSITIVE** = 这段 DNA 很可能是活跃的调控元件
+> - **NEGATIVE** = 这段 DNA 可能不是活跃的调控元件
+
 | task | 任务说明 | 输出类型 | num_labels | LoRA 权重目录 |
 |------|----------|----------|------------|---------------|
-| acr_arabidopsis | ACR 预测（拟南芥训练集） | 二分类 | 2 | cross_species_acr_train_on_arabidopsis_plantcad2_large |
-| acr_nine_species | ACR 预测（九物种训练集） | 二分类 | 2 | cross_species_acr_train_on_nine_species_plantcad2_large |
-| acr_cell_type | ACR 预测（细胞类型特异性） | 多标签分类 | 92 | cell_type_specific_acr_plantcad2_large |
-| expression_on_off | 叶片表达量（开/关） | 二分类 | 2 | cross_species_leaf_on_off_expression_plantcad2_large |
-| expression_absolute | 叶片表达量（绝对值） | 回归 | 1 | cross_species_leaf_absolute_expression_plantcad2_large |
-| translation_on_off | 叶片翻译效率（开/关） | 二分类 | 2 | cross_species_leaf_on_off_translation_plantcad2_large |
-| translation_absolute | 叶片翻译效率（绝对值） | 回归 | 1 | cross_species_leaf_absolute_translation_plantcad2_large |
+| acr_arabidopsis | 用拟南芥（一种模式植物）的数据训练，预测 DNA 是否为活跃调控区域 | 二分类 | 2 | cross_species_acr_train_on_arabidopsis_plantcad2_large |
+| acr_nine_species | 用 9 种植物的数据联合训练，泛化能力更强，适合非拟南芥物种 | 二分类 | 2 | cross_species_acr_train_on_nine_species_plantcad2_large |
+| acr_cell_type | 预测 DNA 在 92 种不同细胞类型中是否为活跃调控区域（同一个基因在不同细胞中的调控状态不同） | 多标签分类 | 92 | cell_type_specific_acr_plantcad2_large |
+
+#### 表达量预测
+
+> **通俗说明**：基因表达量衡量一个基因"工作强度"——DNA 上的基因需要被"读取"（转录）才能产生蛋白质发挥功能。表达量越高，说明这个基因越活跃。
+>
+> - **on/off（开/关）**：判断基因在某个组织中是否在工作（是/否）
+> - **absolute（绝对值）**：预测基因具体的表达水平（一个连续数值，越高越活跃）
+
+| task | 任务说明 | 输出类型 | num_labels | LoRA 权重目录 |
+|------|----------|----------|------------|---------------|
+| expression_on_off | 预测基因在叶片中是否表达（开/关） | 二分类 | 2 | cross_species_leaf_on_off_expression_plantcad2_large |
+| expression_absolute | 预测基因在叶片中的表达水平（连续数值） | 回归 | 1 | cross_species_leaf_absolute_expression_plantcad2_large |
+
+#### 翻译效率预测
+
+> **通俗说明**：基因转录成 mRNA 后，还需要被"翻译"成蛋白质。翻译效率衡量这个过程的效率——同样多的 mRNA，翻译效率越高，产生的蛋白质越多。
+>
+> - **on/off（开/关）**：判断 mRNA 是否会被翻译成蛋白质
+> - **absolute（绝对值）**：预测具体的翻译效率数值
+
+| task | 任务说明 | 输出类型 | num_labels | LoRA 权重目录 |
+|------|----------|----------|------------|---------------|
+| translation_on_off | 预测 mRNA 在叶片中是否会被翻译（开/关） | 二分类 | 2 | cross_species_leaf_on_off_translation_plantcad2_large |
+| translation_absolute | 预测 mRNA 在叶片中的翻译效率（连续数值） | 回归 | 1 | cross_species_leaf_absolute_translation_plantcad2_large |
 
 ### 响应 — 二分类任务
 
@@ -222,6 +260,8 @@
 ## 5. 掩码位置预测
 
 **POST** `/masked-predict`
+
+> **通俗说明**：类似"完形填空"——把 DNA 序列中某个位置遮住，让模型根据上下文猜那里应该是什么碱基。如果模型非常确定（某个碱基概率 > 0.9），说明这个位置在进化上高度保守，几乎所有植物都保持这个碱基不变，通常是功能上很重要的位置。
 
 对指定位置进行遮盖，预测该位置各碱基（A/C/G/T）的概率分布。
 
