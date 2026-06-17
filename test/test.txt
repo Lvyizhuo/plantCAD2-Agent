@@ -217,5 +217,8 @@ A: 检查 models/ 目录下是否有 7 个 LoRA 子目录
 Q: /predict 返回 "got an unexpected keyword argument 'attention_mask'"
 A: 已在 model_loader.py 中修复，重新启动服务即可
 
+Q: /predict 返回 "Got unsupported ScalarType BFloat16"
+A: mamba-ssm CUDA kernel 不支持 BFloat16，已强制 CLS 模型使用 float16，重新启动服务即可
+
 Q: 模型加载很慢
 A: 首次加载约 1-2 分钟属正常，后续请求会很快
