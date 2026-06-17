@@ -10,6 +10,16 @@
 | 最大序列长度 | 8192 bp |
 | 推荐上下文 | ≥ 600 bp（LoRA 任务）/ ≥ 2048 bp（变异打分） |
 
+## 功能分类
+
+| 端点 | 功能 | 模型要求 | 说明 |
+|------|------|----------|------|
+| GET /health | 健康检查 | — | 服务状态检测 |
+| POST /embeddings | 嵌入提取 | **基座模型** | PlantCAD2 自带，无需额外权重 |
+| POST /variant-score | 变异打分 | **基座模型** | PlantCAD2 自带的零样本能力 |
+| POST /masked-predict | 掩码预测 | **基座模型** | PlantCAD2 自带的掩码语言模型能力 |
+| POST /predict | LoRA 预测 | **基座模型 + LoRA 适配器** | 需要下载对应的微调权重才能使用 |
+
 ---
 
 ## 1. 健康检查
@@ -125,9 +135,11 @@
 
 ---
 
-## 4. LoRA 功能预测
+## 4. LoRA 功能预测（需要额外适配器权重）
 
 **POST** `/predict`
+
+> **前提条件**：需要在 `models/` 目录下下载对应的 LoRA 适配器权重。仅靠基座模型无法使用此端点。
 
 使用微调后的 LoRA 适配器执行特定生物学任务的预测。
 
@@ -147,15 +159,15 @@
 
 ### 可选任务
 
-| task | 任务说明 | 输出类型 | num_labels |
-|------|----------|----------|------------|
-| acr_arabidopsis | ACR 预测（拟南芥训练集） | 二分类 | 2 |
-| acr_nine_species | ACR 预测（九物种训练集） | 二分类 | 2 |
-| acr_cell_type | ACR 预测（细胞类型特异性） | 多标签分类 | 92 |
-| expression_on_off | 叶片表达量（开/关） | 二分类 | 2 |
-| expression_absolute | 叶片表达量（绝对值） | 回归 | 1 |
-| translation_on_off | 叶片翻译效率（开/关） | 二分类 | 2 |
-| translation_absolute | 叶片翻译效率（绝对值） | 回归 | 1 |
+| task | 任务说明 | 输出类型 | num_labels | LoRA 权重目录 |
+|------|----------|----------|------------|---------------|
+| acr_arabidopsis | ACR 预测（拟南芥训练集） | 二分类 | 2 | cross_species_acr_train_on_arabidopsis_plantcad2_large |
+| acr_nine_species | ACR 预测（九物种训练集） | 二分类 | 2 | cross_species_acr_train_on_nine_species_plantcad2_large |
+| acr_cell_type | ACR 预测（细胞类型特异性） | 多标签分类 | 92 | cell_type_specific_acr_plantcad2_large |
+| expression_on_off | 叶片表达量（开/关） | 二分类 | 2 | cross_species_leaf_on_off_expression_plantcad2_large |
+| expression_absolute | 叶片表达量（绝对值） | 回归 | 1 | cross_species_leaf_absolute_expression_plantcad2_large |
+| translation_on_off | 叶片翻译效率（开/关） | 二分类 | 2 | cross_species_leaf_on_off_translation_plantcad2_large |
+| translation_absolute | 叶片翻译效率（绝对值） | 回归 | 1 | cross_species_leaf_absolute_translation_plantcad2_large |
 
 ### 响应 — 二分类任务
 
