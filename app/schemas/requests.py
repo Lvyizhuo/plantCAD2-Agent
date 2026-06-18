@@ -10,12 +10,23 @@ from app.config import settings
 
 
 # --- Constants ---
-VALID_NUCLEOTIDES = set("ACGTacgt")
+# IUPAC nucleotide codes:
+# A=Adenine, T=Thymine, C=Cytosine, G=Guanine
+# N=Any, R=Purine(A/G), Y=Pyrimidine(C/T), M=Amino(A/C), K=Keto(G/T)
+# S=Strong(G/C), W=Weak(A/T), H=not G(A/C/T), V=not T(A/C/G)
+# D=not C(A/G/T), B=not A(C/G/T)
+VALID_IUPAC_CHARS = set("ACGTNRYMKSWHBVDacgtnrymkswhbvd")
 MAX_SEQUENCE_LENGTH = settings.max_sequence_length  # 8192
 
 
 def validate_dna_sequence(v: str) -> str:
-    """Validate DNA sequence: non-empty, correct length, valid characters."""
+    """Validate DNA sequence: non-empty, correct length, valid IUPAC characters.
+
+    Allows standard IUPAC nucleotide codes:
+    - A, C, G, T: standard bases
+    - N: any base (will be converted to [UNK] by tokenizer)
+    - R, Y, M, K, S, W, H, B, V, D: ambiguity codes
+    """
     if not v or not v.strip():
         raise ValueError("Sequence must not be empty")
 
@@ -29,11 +40,11 @@ def validate_dna_sequence(v: str) -> str:
             f"Sequence length {len(v)} exceeds maximum {MAX_SEQUENCE_LENGTH}bp"
         )
 
-    invalid_chars = set(v) - {"A", "C", "G", "T"}
+    invalid_chars = set(v) - VALID_IUPAC_CHARS
     if invalid_chars:
         raise ValueError(
             f"Sequence contains invalid characters: {invalid_chars}. "
-            f"Only A, C, G, T (case-insensitive) are allowed"
+            f"Only IUPAC nucleotide codes (A,C,G,T,N,R,Y,M,K,S,W,H,B,V,D) are allowed"
         )
 
     return v
@@ -44,7 +55,7 @@ def validate_dna_sequence(v: str) -> str:
 class EmbeddingRequest(BaseModel):
     sequence: str = Field(
         ...,
-        description=f"DNA sequence (ACGT, max {MAX_SEQUENCE_LENGTH}bp)",
+        description=f"DNA sequence (IUPAC: A,C,G,T,N,R,Y,M,K,S,W,H,B,V,D, max {MAX_SEQUENCE_LENGTH}bp)",
         min_length=1,
         max_length=MAX_SEQUENCE_LENGTH,
     )
@@ -67,7 +78,7 @@ class EmbeddingResponse(BaseModel):
 class VariantScoreRequest(BaseModel):
     sequence: str = Field(
         ...,
-        description=f"DNA context sequence containing the variant (max {MAX_SEQUENCE_LENGTH}bp)",
+        description=f"DNA context sequence containing the variant (IUPAC, max {MAX_SEQUENCE_LENGTH}bp)",
         min_length=1,
         max_length=MAX_SEQUENCE_LENGTH,
     )
@@ -139,7 +150,7 @@ VALID_TASKS = [
 class PredictRequest(BaseModel):
     sequence: str = Field(
         ...,
-        description=f"DNA sequence (ACGT, max {MAX_SEQUENCE_LENGTH}bp)",
+        description=f"DNA sequence (IUPAC: A,C,G,T,N,R,Y,M,K,S,W,H,B,V,D, max {MAX_SEQUENCE_LENGTH}bp)",
         min_length=1,
         max_length=MAX_SEQUENCE_LENGTH,
     )
@@ -176,7 +187,7 @@ class PredictResponse(BaseModel):
 class MaskedPredictRequest(BaseModel):
     sequence: str = Field(
         ...,
-        description=f"DNA sequence (ACGT, max {MAX_SEQUENCE_LENGTH}bp)",
+        description=f"DNA sequence (IUPAC: A,C,G,T,N,R,Y,M,K,S,W,H,B,V,D, max {MAX_SEQUENCE_LENGTH}bp)",
         min_length=1,
         max_length=MAX_SEQUENCE_LENGTH,
     )
