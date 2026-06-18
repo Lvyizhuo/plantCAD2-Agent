@@ -5,9 +5,11 @@
 | 项目 | 说明 |
 |------|------|
 | 框架 | FastAPI |
-| 启动命令 | `CUDA_VISIBLE_DEVICES=2 PLANTCAD2_DEVICE=cuda:0 uvicorn app.main:app --host 0.0.0.0 --port 8005` |
+| 日志 | loguru（控制台 + 文件轮转） |
+| 启动命令 | `CUDA_VISIBLE_DEVICES=3 PLANTCAD2_DEVICE=cuda:0 uvicorn app.main:app --host 0.0.0.0 --port 8005` |
 | 模型 | PlantCAD2-Large-l48-d1536（694M 参数） |
 | 最大序列长度 | 8192 bp |
+| 支持的碱基 | IUPAC 标准（A,C,G,T,N,R,Y,M,K,S,W,H,B,V,D） |
 | 推荐上下文 | ≥ 600 bp（LoRA 任务）/ ≥ 2048 bp（变异打分） |
 
 ## 功能分类
@@ -59,7 +61,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| sequence | string | ✅ | DNA 序列（ACGT，最长 8192 bp） |
+| sequence | string | ✅ | DNA 序列（IUPAC 碱基，最长 8192 bp） |
 | normalize | bool | ❌ | 是否 L2 归一化，默认 true |
 
 ```json
@@ -105,10 +107,10 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| sequence | string | ✅ | 包含变异位点的上下文 DNA 序列 |
+| sequence | string | ✅ | 包含变异位点的上下文 DNA 序列（IUPAC 碱基） |
 | position | int | ✅ | 变异位点在序列中的 0-based 位置 |
 | ref_allele | string | ✅ | 参考碱基（A/C/G/T） |
-| alt_alleles | string[] | ✅ | 变异碱基列表 |
+| alt_alleles | string[] | ✅ | 变异碱基列表（A/C/G/T，最多 3 个） |
 
 ```json
 {
@@ -158,7 +160,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| sequence | string | ✅ | DNA 序列（建议 ≥ 600 bp） |
+| sequence | string | ✅ | DNA 序列（IUPAC 碱基，建议 ≥ 600 bp） |
 | task | string | ✅ | 任务名称，见下表 |
 
 ```json
@@ -269,8 +271,8 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| sequence | string | ✅ | DNA 序列 |
-| positions | int[] | ✅ | 要遮盖的 0-based 位置列表 |
+| sequence | string | ✅ | DNA 序列（IUPAC 碱基） |
+| positions | int[] | ✅ | 要遮盖的 0-based 位置列表（最多 100 个） |
 
 ```json
 {
@@ -294,16 +296,127 @@
 ### 用途
 
 - 识别保守位点（某个碱基概率 > 0.9）
-- 评估序列的可变性
-- 辅助设计实验（如 CRISAM 靶点选择）
+- 序列的可变性
+- 辅助设计实验（如 CRISPR 靶点选择）
 
 ---
 
-## 错误码
+## 6. 错误处理
 
-| HTTP 状态码 | 含义 |
-|------------|------|
-| 200 | 成功 |
-| 400 | 请求参数错误（序列过长、位置越界、task 不存在等） |
-| 404 | LoRA 适配器目录未找到 |
-| 500 | 推理内部错误 |
+### 错误响应格式
+
+#### 参数校验错误（422）
+
+```json
+{
+  "detail": "请求参数校验失败",
+  "errors": [
+    "body -> sequence: String should match pattern '^[ACGTN]+$'",
+    "body -> position: Input should be greater than or equal to 0"
+  ]
+}
+```
+
+#### 业务错误（400/404）
+
+```json
+{
+  "detail": "Position 100 is out of range for sequence of length 50"
+}
+```
+
+#### 服务器错误（500）
+
+```json
+{
+  "detail": "服务器内部错误"
+}
+```
+
+### HTTP 状态码
+
+| 状态码 | 含义 | 说明 |
+|--------|------|------|
+| 200 | 成功 | 请求处理成功 |
+| 400 | 请求错误 | 序列过长、位置越界、task 不存在等 |
+| 404 | 未找到 | LoRA 适配器目录未找到 |
+| 422 | 校验失败 | 参数格式错误、包含无效字符等 |
+| 500 | 服务器错误 | 推理内部错误 |
+
+---
+
+## 7. 日志
+
+服务使用 loguru 记录日志，支持控制台输出和文件轮转。
+
+### 日志位置
+
+```
+logs/
+├── plantcad2_20260618.log    ← 当天日志
+├── plantcad2_20260617.log    ← 历史日志（自动轮转）
+└── ...
+```
+
+### 日志内容
+
+- 请求参数校验失败详情（字段、错误原因、输入值）
+- 服务器错误堆栈跟踪
+- 模型加载状态
+- 推理耗时统计
+
+### 日志级别
+
+| 级别 | 说明 |
+|------|------|
+| DEBUG | 详细调试信息 |
+| INFO | 一般信息（模型加载、请求处理） |
+| WARNING | 警告（参数校验失败、LoRA 加载失败） |
+| ERROR | 错误（服务器内部错误） |
+
+---
+
+## 8. IUPAC 碱基代码
+
+服务支持标准 IUPAC 碱基代码：
+
+| 代码 | 含义 | 说明 |
+|------|------|------|
+| A | Adenine | 腺嘌呤 |
+| C | Cytosine | 胞嘧啶 |
+| G | Guanine | 鸟嘌呤 |
+| T | Thymine | 胸腺嘧啶 |
+| N | Any | 任意碱基（转为 [UNK] token） |
+| R | Purine | A 或 G |
+| Y | Pyrimidine | C 或 T |
+| M | Amino | A 或 C |
+| K | Keto | G 或 T |
+| S | Strong | G 或 C |
+| W | Weak | A 或 T |
+| H | not G | A 或 C 或 T |
+| V | not T | A 或 C 或 G |
+| D | not C | A 或 G 或 T |
+| B | not A | C 或 G 或 T |
+
+**说明**：N 会被 tokenizer 自动转换为 [UNK] token，模型会根据上下文推断该位置的碱基。其他模糊碱基代码也会被转换为对应的 token。
+
+---
+
+## 9. 测试结果
+
+详见 `results/` 目录下的测试报告：
+
+- `20260618_test_report.md` — 最新测试报告
+- `20260617_test_report.md` — 历史测试报告
+
+### 测试摘要（2026-06-18）
+
+| 任务 | 准确率 | 样本数 | 平均耗时 |
+|------|--------|--------|----------|
+| acr_nine_species | 94.55% | 1,100 | 0.324s |
+| acr_arabidopsis | 86.61% | 2,300 | 0.329s |
+| acr_cell_type | — | 100 | 0.320s |
+| expression_on_off | 55.50% | 400 | 0.323s |
+| expression_absolute | — | 400 | 0.318s |
+| translation_on_off | 58.00% | 100 | 0.316s |
+| translation_absolute | — | 100 | 0.318s |
