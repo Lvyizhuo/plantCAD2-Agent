@@ -5,13 +5,10 @@ Masks each target position independently and predicts
 the ACGT probability distribution.
 """
 
-import logging
-
 import numpy as np
 import torch
+from loguru import logger
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-
-logger = logging.getLogger(__name__)
 
 MAX_SEQ_LENGTH = 8192
 NUCLEOTIDES = ["A", "C", "G", "T"]
@@ -38,6 +35,9 @@ def masked_predict(
 
     Returns:
         Dict with 'predictions' mapping each position to {A, C, G, T} probs.
+
+    Raises:
+        ValueError: If sequence length exceeds maximum or positions are out of range.
     """
     if len(sequence) > MAX_SEQ_LENGTH:
         raise ValueError(
@@ -81,4 +81,5 @@ def masked_predict(
             nuc: float(probs[i]) for i, nuc in enumerate(NUCLEOTIDES)
         }
 
+    logger.debug(f"Masked prediction at {len(positions)} positions")
     return {"predictions": predictions}

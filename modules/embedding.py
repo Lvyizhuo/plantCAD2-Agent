@@ -5,13 +5,10 @@ Handles RCPS (reverse-complement parameter sharing) by splitting
 the 2x-dim output into forward/reverse halves and averaging.
 """
 
-import logging
-
 import numpy as np
 import torch
+from loguru import logger
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-
-logger = logging.getLogger(__name__)
 
 # PlantCAD2 max context length
 MAX_SEQ_LENGTH = 8192
@@ -43,6 +40,9 @@ def extract_embeddings(
             - embeddings: numpy array of shape (seq_len, d_model)
             - shape: tuple (seq_len, d_model)
             - sequence_length: int
+
+    Raises:
+        ValueError: If sequence length exceeds maximum.
     """
     if len(sequence) > MAX_SEQ_LENGTH:
         raise ValueError(
@@ -85,6 +85,8 @@ def extract_embeddings(
         norms = np.linalg.norm(averaged, axis=-1, keepdims=True)
         norms = np.clip(norms, 1e-8, None)
         averaged = averaged / norms
+
+    logger.debug(f"Extracted embeddings: shape={averaged.shape}, normalized={normalize}")
 
     return {
         "embeddings": averaged,

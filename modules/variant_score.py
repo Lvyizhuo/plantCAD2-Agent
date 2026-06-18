@@ -5,13 +5,10 @@ Computes log-likelihood ratios (LLR) for variant alleles by masking
 the target position and comparing predicted probabilities.
 """
 
-import logging
-
 import numpy as np
 import torch
+from loguru import logger
 from transformers import AutoModelForMaskedLM, AutoTokenizer
-
-logger = logging.getLogger(__name__)
 
 MAX_SEQ_LENGTH = 8192
 NUCLEOTIDES = ["A", "C", "G", "T"]
@@ -49,6 +46,9 @@ def score_variant(
     Interpretation:
         LLR > 0: variant is more likely than reference (possibly deleterious)
         LLR < 0: variant is less likely than reference (possibly neutral/benign)
+
+    Raises:
+        ValueError: If sequence length exceeds maximum or position is out of range.
     """
     if len(sequence) > MAX_SEQ_LENGTH:
         raise ValueError(
@@ -96,6 +96,12 @@ def score_variant(
             scores[alt] = float(np.log(alt_p / ref_prob))
         else:
             scores[alt] = float("inf") if alt_p > 0 else float("-inf")
+
+    logger.debug(
+        f"Variant scoring at pos {position}: "
+        f"ref={ref_allele}({ref_prob:.4f}), "
+        f"scores={scores}"
+    )
 
     return {
         "scores": scores,

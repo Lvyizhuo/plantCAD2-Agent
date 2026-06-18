@@ -5,12 +5,12 @@ Supports local/offline model loading without HuggingFace remote access.
 """
 
 import inspect
-import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
-from safetensors import safe_open
+from loguru import logger
+from safetensors.torch import load_file
 from transformers import (
     AutoModelForMaskedLM,
     AutoModelForSequenceClassification,
@@ -18,26 +18,31 @@ from transformers import (
 )
 from peft import PeftModel
 
-logger = logging.getLogger(__name__)
-
 
 def get_optimal_dtype() -> torch.dtype:
-    """Select the best dtype for the current GPU."""
+    """Select the best dtype for the current GPU.
+
+    Returns:
+        torch.bfloat16 for sm_80+ (A100, H100)
+        torch.float16 for sm_60+ (V100, T4)
+        torch.float32 for CPU or older GPUs
+    """
     if not torch.cuda.is_available():
         logger.info("No GPU available, using float32")
         return torch.float32
 
     device_index = torch.cuda.current_device()
     capability = torch.cuda.get_device_capability(device_index)
+    sm_version = capability[0] * 10 + capability[1]
 
-    if capability[0] >= 8:
-        logger.info("GPU supports sm_80+, using bfloat16")
+    if sm_version >= 80:
+        logger.info(f"GPU sm_{sm_version} detected, using bfloat16")
         return torch.bfloat16
-    elif capability[0] >= 6:
-        logger.info("GPU supports sm_60+, using float16")
+    elif sm_version >= 60:
+        logger.info(f"GPU sm_{sm_version} detected, using float16")
         return torch.float16
     else:
-        logger.info("GPU does not support float16/bfloat16, using float32")
+        logger.info(f"GPU sm_{sm_version} detected, using float32")
         return torch.float32
 
 
@@ -45,8 +50,8 @@ def load_mlm_model(
     model_path: str,
     device: str = "cuda:0",
     dtype: Optional[torch.dtype] = None,
-) -> tuple:
-    """Load the Masked LM model (AutoModelForMaskedLM) and tokenizer.
+) -> Tuple[AutoModelForMaskedLM, AutoTokenizer]:
+    """Load the Masked LM model and tokenizer.
 
     Used for: embedding extraction, masked token prediction, variant scoring.
 
@@ -92,7 +97,7 @@ def load_cls_model(
     num_labels: int = 2,
     problem_type: Optional[str] = None,
 ) -> AutoModelForSequenceClassification:
-    """Load the Sequence Classification model (AutoModelForSequenceClassification).
+    """Load the Sequence Classification model.
 
     Used for: LoRA fine-tuned task predictions.
 
@@ -105,7 +110,7 @@ def load_cls_model(
         problem_type: "regression", "multi_label_classification", or None.
 
     Returns:
-        The classification model.
+        The classification model with wrapped forward method.
     """
     if dtype is None:
         # mamba-ssm CUDA kernels do not support BFloat16, so we use float16
@@ -151,14 +156,27 @@ def load_cls_model(
 
 
 def detect_adapter_num_labels(lora_path: str) -> int:
-    """Detect num_labels from adapter weights by reading score.weight shape."""
+    """Detect num_labels from adapter weights by reading score.weight shape.
+
+    Args:
+        lora_path: Path to the LoRA adapter directory.
+
+    Returns:
+        Number of labels (e.g., 2 for binary, 92 for cell_type, 1 for regression).
+    """
     adapter_file = Path(lora_path) / "adapter_model.safetensors"
     if not adapter_file.exists():
-        return 2  # default binary classification
-    with safe_open(str(adapter_file), framework="pt") as f:
-        for key in f.keys():
-            if key.endswith("score.weight"):
-                return f.get_tensor(key).shape[0]
+        logger.warning(f"Adapter file not found: {adapter_file}, defaulting to num_labels=2")
+        return 2
+
+    state_dict = load_file(str(adapter_file))
+    for key in state_dict:
+        if key.endswith("score.weight"):
+            num_labels = state_dict[key].shape[0]
+            logger.info(f"Detected num_labels={num_labels} from adapter")
+            return num_labels
+
+    logger.warning("Could not detect num_labels from adapter, defaulting to 2")
     return 2
 
 
@@ -182,21 +200,20 @@ def load_lora_adapter(
     """
     logger.info(f"Loading LoRA adapter from {lora_path}")
 
-    # If local base model path provided, temporarily override the adapter config
-    # to avoid trying to download from HuggingFace
     if base_model_path is not None:
-        from peft import PeftConfig
-        config = PeftConfig.from_pretrained(lora_path)
-        original_path = config.base_model_name_or_path
-        if original_path != base_model_path:
-            logger.info(
-                f"Overriding adapter base_model from '{original_path}' to '{base_model_path}'"
-            )
-            # PeftModel.from_pretrained loads the config internally, so we need to
-            # pass the base model directly (which we already have)
-            pass
+        # Override the base_model_name_or_path to point to local files
+        import json
+        config_path = Path(lora_path) / "adapter_config.json"
+        if config_path.exists():
+            with open(config_path, "r") as f:
+                config = json.load(f)
+            original_path = config.get("base_model_name_or_path", "")
+            config["base_model_name_or_path"] = base_model_path
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+            logger.debug(f"Overrode base_model_path: {original_path} -> {base_model_path}")
 
     model = PeftModel.from_pretrained(base_model, lora_path)
     model.eval()
-    logger.info(f"LoRA adapter loaded from {lora_path}")
+    logger.info("LoRA adapter loaded successfully")
     return model

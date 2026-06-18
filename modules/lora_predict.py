@@ -5,17 +5,11 @@ Loads a base classification model with a LoRA adapter overlay,
 tokenizes the input sequence directly, and runs inference.
 """
 
-import logging
-
 import numpy as np
 import torch
+from loguru import logger
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from peft import PeftModel
-
-logger = logging.getLogger(__name__)
-
-# Token IDs for ACGT nucleotides in the tokenizer
-NUCLEOTIDES = ["A", "C", "G", "T"]
 
 
 def predict_with_lora(
@@ -37,10 +31,15 @@ def predict_with_lora(
         max_length: Maximum sequence length for tokenization.
 
     Returns:
-        For classification:
+        For binary classification:
             {"prediction": "POSITIVE"/"NEGATIVE", "probability": float}
+        For multi-label classification:
+            {"prediction": "MULTI_LABEL", "probabilities": list[float], "num_labels": int}
         For regression:
             {"prediction": float}
+
+    Raises:
+        ValueError: If task_type is unsupported.
     """
     # Tokenize the sequence directly (not from parquet)
     encoding = tokenizer.encode_plus(
@@ -64,6 +63,7 @@ def predict_with_lora(
         if num_labels > 2:
             # Multi-label classification (e.g. cell_type with 92 labels)
             probs = torch.sigmoid(logits.cpu()).numpy()[0]
+            logger.debug(f"Multi-label prediction: {num_labels} labels")
             return {
                 "prediction": "MULTI_LABEL",
                 "probabilities": [float(p) for p in probs],
@@ -74,12 +74,14 @@ def predict_with_lora(
             probs = torch.nn.functional.softmax(logits.cpu(), dim=1).numpy()[0]
             positive_prob = float(probs[1])
             prediction = "POSITIVE" if positive_prob >= 0.5 else "NEGATIVE"
+            logger.debug(f"Binary prediction: {prediction} (prob={positive_prob:.4f})")
             return {
                 "prediction": prediction,
                 "probability": positive_prob,
             }
     elif task_type == "regression":
         predicted_value = float(logits.cpu().numpy().squeeze())
+        logger.debug(f"Regression prediction: {predicted_value:.4f}")
         return {
             "prediction": predicted_value,
         }

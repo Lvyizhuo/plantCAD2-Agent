@@ -4,20 +4,19 @@ Central orchestrator that manages model loading and dispatches inference request
 to the appropriate modules.
 """
 
-import logging
 from pathlib import Path
 from typing import Optional
 
 import torch
+from loguru import logger
 from peft import PeftModel
+from transformers import AutoModelForSequenceClassification
 
 from modules.model_loader import load_mlm_model, load_cls_model, load_lora_adapter, detect_adapter_num_labels
 from modules.embedding import extract_embeddings
 from modules.variant_score import score_variant as _score_variant
 from modules.lora_predict import predict_with_lora
 from modules.masked_predict import masked_predict as _masked_predict
-
-logger = logging.getLogger(__name__)
 
 # Task name -> (LoRA directory name, task_type)
 # num_labels is auto-detected from adapter weights at load time.
@@ -140,7 +139,7 @@ class PlantCAD2Engine:
         return adapter
 
     # ------------------------------------------------------------------
-    # Inference methods (implemented in P1)
+    # Inference methods
     # ------------------------------------------------------------------
 
     def get_embeddings(self, sequence: str, normalize: bool = True) -> dict:
@@ -158,6 +157,20 @@ class PlantCAD2Engine:
         alt_alleles: list[str],
     ) -> dict:
         """Score variant effect using zero-shot masked prediction."""
+        # Additional validation: position within sequence
+        if position >= len(sequence):
+            raise ValueError(
+                f"Position {position} is out of range for sequence of length {len(sequence)}"
+            )
+
+        # Check ref_allele matches sequence at position
+        actual_allele = sequence[position].upper()
+        if actual_allele != ref_allele.upper():
+            raise ValueError(
+                f"Reference allele mismatch at position {position}: "
+                f"expected '{ref_allele.upper()}' but sequence has '{actual_allele}'"
+            )
+
         return _score_variant(
             self.mlm_model, self.tokenizer, sequence,
             position, ref_allele, alt_alleles,
@@ -177,6 +190,13 @@ class PlantCAD2Engine:
 
     def masked_predict(self, sequence: str, positions: list[int]) -> dict:
         """Predict nucleotide probabilities at specified positions."""
+        # Validate all positions are within sequence
+        for pos in positions:
+            if pos >= len(sequence):
+                raise ValueError(
+                    f"Position {pos} is out of range for sequence of length {len(sequence)}"
+                )
+
         return _masked_predict(
             self.mlm_model, self.tokenizer, sequence,
             positions, device=self.device,
