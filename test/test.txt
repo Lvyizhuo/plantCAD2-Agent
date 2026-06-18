@@ -271,6 +271,9 @@ A: 首次加载约 1-2 分钟属正常，后续请求会很快
     # 指定服务地址
     python scripts/test_lora_tasks.py --host 36.133.115.221 --port 8005
 
+    # 全部任务，每个数据集抽样100条数据
+    python scripts/test_lora_tasks.py --host localhost --port 8005 --num_samples 100
+
 支持的任务名称：
     - acr_arabidopsis      拟南芥 ACR 预测（分类）
     - acr_nine_species     九物种 ACR 预测（分类）
