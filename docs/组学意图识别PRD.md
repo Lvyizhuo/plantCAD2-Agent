@@ -46,14 +46,14 @@
 
 ### 2.1 功能需求
 
-| 需求编号 | 需求描述 | 优先级 |
-|---------|---------|--------|
-| F-001 | 支持EVO2和PlantCAD2两个模型的任务跳转 | P0 |
-| F-002 | 对每个任务设计全面的、多场景的过滤提示词 | P0 |
-| F-003 | 接收用户问题，通过大模型进行意图识别 | P0 |
-| F-004 | 返回置信度较高的任务序号和结果 | P0 |
-| F-005 | 返回引导词，引导用户选择任务和输入数据 | P1 |
-| F-006 | 支持高置信度场景下直接提取参数并调用接口 | P0 |
+| 需求编号  | 需求描述                      | 优先级 |
+| ----- | ------------------------- | --- |
+| F-001 | 支持EVO2和PlantCAD2两个模型的任务跳转 | P0  |
+| F-002 | 对每个任务设计全面的、多场景的过滤提示词      | P0  |
+| F-003 | 接收用户问题，通过大模型进行意图识别        | P0  |
+| F-004 | 返回置信度较高的任务序号和结果           | P0  |
+| F-005 | 返回引导词，引导用户选择任务和输入数据       | P1  |
+| F-006 | 支持高置信度场景下直接提取参数并调用接口      | P0  |
 
 ### 2.2 返回场景设计
 
@@ -64,12 +64,14 @@
 **触发条件**：用户输入明确包含任务类型、数据和参数
 
 **处理逻辑**：
+
 1. 返回任务接口序号
 2. 大模型提取用户问题中的数据和参数
 3. 直接调用该任务接口进行计算
 4. 返回任务序号和计算结果
 
 **示例**：
+
 ```
 用户输入："帮我预测这段DNA序列的表达量开/关：CTTAATTAATATTGCCTTTGTAATAACGCGCGAAACACAAATCTTCTCTGCCTAATGCAGTAGTCATGTGTTGACTCCTTCAAAATTTCCAAGAAGTTAGTGGCTGGTGTGTCATTGTCTTCATCTTTTTTTTTTTTTTTTTAAAAATTGAATGCGACATGTACTCCTCAACGTATAAGCTCAATGCTTGTTACTGAAACATCTCTTGTCTGATTTTTTCAGGCTAAGTCTTACAGAAAGTGATTGGGCACTTCAATGGCTTTCACAAATGAAAAAGATGGATCTAAGGGATTTGTGAAGAGAGTGGCTTCATCTTTCTCCATGAGGAAGAAGAAGAATGCAACAAGTGAACCCAAGTTGCTTCCAAGATCGAAATCAACAGGTTCTGCTAACTTTGAATCCATGAGGCTACCTGCAACGAAGAAGATTTCAGATGTCACAAACAAAACAAGGATCAAACCATTAGGTGGTGTAGCACCAGCACAACCAAGAAGGGAAAAGATCGATGATCG"
 
@@ -97,10 +99,12 @@
 **触发条件**：用户只提供了关键字，但未提供数据和具体任务指示
 
 **处理逻辑**：
+
 1. 返回置信度较高的4-5个任务序号
 2. 返回每个任务的简要说明和引导词
 
 **示例**：
+
 ```
 用户输入："我想分析一下基因序列"
 
@@ -146,11 +150,13 @@
 **触发条件**：用户问题模糊，无法判别具体任务
 
 **处理逻辑**：
+
 1. 返回兜底提示语
 2. 列出所有可用任务供用户选择
 3. 引导用户输入数据
 
 **示例**：
+
 ```
 用户输入："帮我看看"
 
@@ -185,19 +191,19 @@
 
 ### 3.2 任务列表
 
-| 任务ID | 任务名称 | 模型 | 接口路径 | 请求参数 | 输出类型 |
-|--------|---------|------|----------|----------|----------|
-| 101 | 基因序列预测生成 | EVO2 | POST /api/v1/generate | prompt, numTokens, temperature, topK, topP, showLogits | 序列+置信度 |
-| 201 | 嵌入提取 | PlantCAD2 | POST /embeddings | sequence, normalize | 向量矩阵 |
-| 202 | 变异打分 | PlantCAD2 | POST /variant-score | sequence, position, ref_allele, alt_alleles | LLR分数 |
-| 203 | 掩码预测 | PlantCAD2 | POST /masked-predict | sequence, positions | 碱基概率分布 |
-| 204 | ACR预测-拟南芥 | PlantCAD2 | POST /predict | sequence, task="acr_arabidopsis" | 二分类 |
-| 205 | ACR预测-九物种 | PlantCAD2 | POST /predict | sequence, task="acr_nine_species" | 二分类 |
-| 206 | ACR预测-细胞类型 | PlantCAD2 | POST /predict | sequence, task="acr_cell_type" | 多标签分类(92类) |
-| 207 | 表达量预测-开/关 | PlantCAD2 | POST /predict | sequence, task="expression_on_off" | 二分类 |
-| 208 | 表达量预测-绝对值 | PlantCAD2 | POST /predict | sequence, task="expression_absolute" | 回归 |
-| 209 | 翻译效率预测-开/关 | PlantCAD2 | POST /predict | sequence, task="translation_on_off" | 二分类 |
-| 210 | 翻译效率预测-绝对值 | PlantCAD2 | POST /predict | sequence, task="translation_absolute" | 回归 |
+| 任务ID | 任务名称       | 模型        | 接口路径                  | 请求参数                                                   | 输出类型       |
+| ---- | ---------- | --------- | --------------------- | ------------------------------------------------------ | ---------- |
+| 101  | 基因序列预测生成   | EVO2      | POST /api/v1/generate | prompt, numTokens, temperature, topK, topP, showLogits | 序列+置信度     |
+| 201  | 嵌入提取       | PlantCAD2 | POST /embeddings      | sequence, normalize                                    | 向量矩阵       |
+| 202  | 变异打分       | PlantCAD2 | POST /variant-score   | sequence, position, ref_allele, alt_alleles            | LLR分数      |
+| 203  | 掩码预测       | PlantCAD2 | POST /masked-predict  | sequence, positions                                    | 碱基概率分布     |
+| 204  | ACR预测-拟南芥  | PlantCAD2 | POST /predict         | sequence, task="acr_arabidopsis"                       | 二分类        |
+| 205  | ACR预测-九物种  | PlantCAD2 | POST /predict         | sequence, task="acr_nine_species"                      | 二分类        |
+| 206  | ACR预测-细胞类型 | PlantCAD2 | POST /predict         | sequence, task="acr_cell_type"                         | 多标签分类(92类) |
+| 207  | 表达量预测-开/关  | PlantCAD2 | POST /predict         | sequence, task="expression_on_off"                     | 二分类        |
+| 208  | 表达量预测-绝对值  | PlantCAD2 | POST /predict         | sequence, task="expression_absolute"                   | 回归         |
+| 209  | 翻译效率预测-开/关 | PlantCAD2 | POST /predict         | sequence, task="translation_on_off"                    | 二分类        |
+| 210  | 翻译效率预测-绝对值 | PlantCAD2 | POST /predict         | sequence, task="translation_absolute"                  | 回归         |
 
 ---
 
@@ -209,12 +215,13 @@
 
 **请求参数**：
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| user_input | string | ✅ | 用户输入的问题文本 |
-| session_id | string | ❌ | 会话ID，用于上下文关联 |
+| 参数         | 类型     | 必填  | 说明           |
+| ---------- | ------ | --- | ------------ |
+| user_input | string | ✅   | 用户输入的问题文本    |
+| session_id | string | ❌   | 会话ID，用于上下文关联 |
 
 **请求示例**：
+
 ```json
 {
   "user_input": "帮我预测这段DNA序列的表达量开/关：CTTAATTAATATTGCCTTTGTAA...",
@@ -224,25 +231,25 @@
 
 **响应参数**：
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| confidence | string | 置信度：high/medium/low |
-| task_id | int | 任务ID（高置信度时返回） |
-| task_name | string | 任务名称（高置信度时返回） |
-| model | string | 使用的模型名称 |
-| params | object | 提取的参数（高置信度时返回） |
-| result | object | 计算结果（高置信度时返回） |
-| suggested_tasks | array | 推荐任务列表（中置信度时返回） |
-| guide_message | string | 引导消息 |
-| available_tasks | array | 可用任务列表（低置信度时返回） |
+| 参数              | 类型     | 说明                  |
+| --------------- | ------ | ------------------- |
+| confidence      | string | 置信度：high/medium/low |
+| task_id         | int    | 任务ID（高置信度时返回）       |
+| task_name       | string | 任务名称（高置信度时返回）       |
+| model           | string | 使用的模型名称             |
+| params          | object | 提取的参数（高置信度时返回）      |
+| result          | object | 计算结果（高置信度时返回）       |
+| suggested_tasks | array  | 推荐任务列表（中置信度时返回）     |
+| guide_message   | string | 引导消息                |
+| available_tasks | array  | 可用任务列表（低置信度时返回）     |
 
 ### 4.2 接口服务信息
 
-| 项目 | 说明 |
-|------|------|
-| 框架 | FastAPI |
-| 端口 | 8010 |
-| 大模型 | qwen3.7-max-2026-05-17（阿里云百炼） |
+| 项目   | 说明                                                |
+| ---- | ------------------------------------------------- |
+| 框架   | FastAPI                                           |
+| 端口   | 8010                                              |
+| 大模型  | qwen3.7-max-2026-05-17（阿里云百炼）                     |
 | 启动命令 | `uvicorn app.main:app --host 0.0.0.0 --port 8010` |
 
 ---
@@ -251,7 +258,7 @@
 
 ### 5.1 系统提示词
 
-```
+```markdown
 你是一个组学智能体意图识别助手。你的任务是根据用户输入，精准识别其意图，并映射到具体的任务接口。
 
 ### 🎯 任务能力矩阵
@@ -294,7 +301,6 @@
 ### 📝 输出格式要求
 
 **高置信度输出**（JSON格式）：
-```json
 {
   "confidence": "high",
   "task_id": 207,
@@ -305,24 +311,22 @@
     "task": "expression_on_off"
   }
 }
-```
+
 
 **中置信度输出**（JSON格式）：
-```json
 {
   "confidence": "medium",
   "suggested_tasks": [201, 202, 203, 101],
   "guide_message": "您想进行哪种分析？"
 }
-```
+
 
 **低置信度输出**（JSON格式）：
-```json
 {
   "confidence": "low",
   "guide_message": "请选择任务并提供数据"
 }
-```
+
 
 ### ⚠️ 输出强制约束
 - 输出必须是有效的JSON格式
@@ -336,10 +340,12 @@
 #### 5.2.1 EVO2 基因序列预测生成（任务ID: 101）
 
 **触发关键词**：
+
 - 生成序列、预测序列、续写、序列生成、基因生成、DNA生成
 - 后续序列、延伸、扩展序列
 
 **典型用户问题场景**：
+
 ```
 1. "帮我生成这段DNA的后续序列：ACGT..."
 2. "预测一下这个基因序列后面是什么"
@@ -352,6 +358,7 @@
 ```
 
 **数据提取规则**：
+
 - 提取prompt字段：用户提供的DNA序列
 - 提取numTokens字段：生成序列长度（默认1200）
 - 提取temperature字段：温度系数（默认0.1）
@@ -363,10 +370,12 @@
 #### 5.2.2 PlantCAD2 嵌入提取（任务ID: 201）
 
 **触发关键词**：
+
 - 嵌入、向量、表示、embedding、特征提取
 - 相似性比较、聚类、降维、可视化
 
 **典型用户问题场景**：
+
 ```
 1. "提取这段DNA序列的嵌入向量"
 2. "帮我把这段序列转成向量表示"
@@ -379,6 +388,7 @@
 ```
 
 **数据提取规则**：
+
 - 提取sequence字段：用户提供的DNA序列
 - 提取normalize字段：是否归一化（默认true）
 
@@ -387,10 +397,12 @@
 #### 5.2.3 PlantCAD2 变异打分（任务ID: 202）
 
 **触发关键词**：
+
 - 变异、SNP、突变、打分、致病性、LLR
 - 碱基变化、单核苷酸多态性、变异评估
 
 **典型用户问题场景**：
+
 ```
 1. "评估这个SNP的致病性"
 2. "变异打分：位置100，A变成G"
@@ -403,6 +415,7 @@
 ```
 
 **数据提取规则**：
+
 - 提取sequence字段：包含变异位点的上下文DNA序列
 - 提取position字段：变异位点位置（0-based）
 - 提取ref_allele字段：参考碱基（A/C/G/T）
@@ -413,10 +426,12 @@
 #### 5.2.4 PlantCAD2 掩码预测（任务ID: 203）
 
 **触发关键词**：
+
 - 掩码、遮盖、保守、概率分布、完形填空
 - 位置预测、碱基概率、进化保守
 
 **典型用户问题场景**：
+
 ```
 1. "预测位置100的碱基概率"
 2. "这个位置保守吗？"
@@ -429,6 +444,7 @@
 ```
 
 **数据提取规则**：
+
 - 提取sequence字段：DNA序列
 - 提取positions字段：要预测的位置列表（0-based）
 
@@ -437,10 +453,12 @@
 #### 5.2.5 PlantCAD2 ACR预测（任务ID: 204/205/206）
 
 **触发关键词**：
+
 - ACR、染色质、调控元件、顺式调控、开放染色质
 - 活跃区域、调控区域、染色质可及性
 
 **典型用户问题场景**：
+
 ```
 1. "预测这段DNA是否为ACR区域"
 2. "这段序列是活跃调控元件吗？"
@@ -453,12 +471,14 @@
 ```
 
 **任务选择逻辑**：
+
 - 如果用户提到"拟南芥"或"Arabidopsis" → 204
 - 如果用户提到"多物种"、"泛化"、"九物种" → 205
 - 如果用户提到"细胞类型"、"特异性"、"92种" → 206
 - 如果未指定，默认推荐205（泛化能力最强）
 
 **数据提取规则**：
+
 - 提取sequence字段：DNA序列
 
 ---
@@ -466,10 +486,12 @@
 #### 5.2.6 PlantCAD2 表达量预测（任务ID: 207/208）
 
 **触发关键词**：
+
 - 表达量、表达水平、基因表达、转录水平
 - 开/关、是否表达、表达绝对值
 
 **典型用户问题场景**：
+
 ```
 1. "预测这个基因的表达量"
 2. "这段DNA在叶片中会表达吗？"
@@ -482,11 +504,13 @@
 ```
 
 **任务选择逻辑**：
+
 - 如果用户提到"开/关"、"是否表达"、"会不会表达" → 207
 - 如果用户提到"绝对值"、"表达水平"、"具体数值" → 208
 - 如果未指定，默认推荐207（开/关分类）
 
 **数据提取规则**：
+
 - 提取sequence字段：DNA序列
 
 ---
@@ -494,10 +518,12 @@
 #### 5.2.7 PlantCAD2 翻译效率预测（任务ID: 209/210）
 
 **触发关键词**：
+
 - 翻译、翻译效率、mRNA翻译、蛋白质合成
 - 翻译开/关、翻译绝对值
 
 **典型用户问题场景**：
+
 ```
 1. "预测这段mRNA的翻译效率"
 2. "这段序列会被翻译吗？"
@@ -510,11 +536,13 @@
 ```
 
 **任务选择逻辑**：
+
 - 如果用户提到"开/关"、"会不会翻译"、"是否翻译" → 209
 - 如果用户提到"绝对值"、"效率数值"、"翻译丰度" → 210
 - 如果未指定，默认推荐209（开/关分类）
 
 **数据提取规则**：
+
 - 提取sequence字段：DNA/mRNA序列
 
 ---
@@ -548,7 +576,7 @@ async def recognize_intent(user_input: str) -> dict:
     """
     # 1. 调用LLM进行意图识别
     intent_result = await llm_intent_recognize(user_input)
-    
+
     # 2. 根据置信度处理
     if intent_result["confidence"] == "high":
         # 高置信度：提取参数并调用接口
@@ -581,20 +609,20 @@ async def recognize_intent(user_input: str) -> dict:
 
 ### 6.3 大模型配置
 
-| 配置项 | 值 |
-|--------|-----|
-| 模型名称 | qwen3.7-max-2026-05-17 |
-| API Key | sk-ws-H.RPYIIPP.0jom.MEQCIFn-x-MmtOHGQ3D_ajVCz42gWmaAAVXkolyVJxEGXJCWAiAGKAfKZTvIwTZHoARJC0tmW0jhxEytahVxOumDcwSsQQ |
-| Base URL | https://dashscope.aliyuncs.com/compatible-mode/v1 |
-| 请求地址 | POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions |
+| 配置项      | 值                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| 模型名称     | qwen3.7-max-2026-05-17                                                                                              |
+| API Key  | sk-ws-H.RPYIIPP.0jom.MEQCIFn-x-MmtOHGQ3D_ajVCz42gWmaAAVXkolyVJxEGXJCWAiAGKAfKZTvIwTZHoARJC0tmW0jhxEytahVxOumDcwSsQQ |
+| Base URL | https://dashscope.aliyuncs.com/compatible-mode/v1                                                                   |
+| 请求地址     | POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions                                             |
 
 ### 6.4 下游服务地址
 
-| 服务 | 地址 | 端口 |
-|------|------|------|
-| PlantCAD2 推理服务 | http://localhost:8005 | 8005 |
-| EVO2 转发接口 | http://36.137.205.153:8666/api/v1/generate | 8666 |
-| 组学意图识别服务 | http://localhost:8010 | 8010 |
+| 服务             | 地址                                         | 端口   |
+| -------------- | ------------------------------------------ | ---- |
+| PlantCAD2 推理服务 | http://localhost:8005                      | 8005 |
+| EVO2 转发接口      | http://36.137.205.153:8666/api/v1/generate | 8666 |
+| 组学意图识别服务       | http://localhost:8010                      | 8010 |
 
 ---
 
@@ -632,29 +660,29 @@ omics-intent-service/
 
 ### 8.1 高置信度测试用例
 
-| 测试ID | 用户输入 | 预期任务ID | 预期置信度 |
-|--------|---------|-----------|-----------|
-| TC-001 | "帮我预测这段DNA序列的表达量开/关：CTTAATTAATATTGCCTTTGTAA..." | 207 | high |
-| TC-002 | "评估这个SNP：序列ACGT...位置100，A变成G" | 202 | high |
-| TC-003 | "生成后续序列，输入ACGT..." | 101 | high |
-| TC-004 | "提取嵌入向量：ACGT..." | 201 | high |
-| TC-005 | "掩码预测位置100、200：ACGT..." | 203 | high |
+| 测试ID   | 用户输入                                            | 预期任务ID | 预期置信度 |
+| ------ | ----------------------------------------------- | ------ | ----- |
+| TC-001 | "帮我预测这段DNA序列的表达量开/关：CTTAATTAATATTGCCTTTGTAA..." | 207    | high  |
+| TC-002 | "评估这个SNP：序列ACGT...位置100，A变成G"                   | 202    | high  |
+| TC-003 | "生成后续序列，输入ACGT..."                              | 101    | high  |
+| TC-004 | "提取嵌入向量：ACGT..."                                | 201    | high  |
+| TC-005 | "掩码预测位置100、200：ACGT..."                         | 203    | high  |
 
 ### 8.2 中置信度测试用例
 
-| 测试ID | 用户输入 | 预期推荐任务数 | 预期置信度 |
-|--------|---------|---------------|-----------|
-| TC-006 | "我想分析基因序列" | 4-5 | medium |
-| TC-007 | "变异分析" | 3-4 | medium |
-| TC-008 | "预测表达量" | 2-3 | medium |
+| 测试ID   | 用户输入       | 预期推荐任务数 | 预期置信度  |
+| ------ | ---------- | ------- | ------ |
+| TC-006 | "我想分析基因序列" | 4-5     | medium |
+| TC-007 | "变异分析"     | 3-4     | medium |
+| TC-008 | "预测表达量"    | 2-3     | medium |
 
 ### 8.3 低置信度测试用例
 
-| 测试ID | 用户输入 | 预期置信度 |
-|--------|---------|-----------|
-| TC-009 | "帮我看看" | low |
-| TC-010 | "你好" | low |
-| TC-011 | "能做什么" | low |
+| 测试ID   | 用户输入   | 预期置信度 |
+| ------ | ------ | ----- |
+| TC-009 | "帮我看看" | low   |
+| TC-010 | "你好"   | low   |
+| TC-011 | "能做什么" | low   |
 
 ---
 
@@ -662,35 +690,35 @@ omics-intent-service/
 
 ### 9.1 异常场景
 
-| 异常类型 | 处理方式 |
-|---------|---------|
-| 用户输入为空 | 返回低置信度兜底引导 |
-| LLM调用超时 | 重试3次，失败返回兜底引导 |
-| LLM返回格式错误 | 解析失败返回兜底引导 |
-| 下游接口调用失败 | 返回任务推荐，提示用户手动调用 |
-| DNA序列格式错误 | 提示用户检查序列格式 |
+| 异常类型      | 处理方式            |
+| --------- | --------------- |
+| 用户输入为空    | 返回低置信度兜底引导      |
+| LLM调用超时   | 重试3次，失败返回兜底引导   |
+| LLM返回格式错误 | 解析失败返回兜底引导      |
+| 下游接口调用失败  | 返回任务推荐，提示用户手动调用 |
+| DNA序列格式错误 | 提示用户检查序列格式      |
 
 ### 9.2 错误码定义
 
-| 错误码 | 说明 |
-|--------|------|
-| 0 | 成功 |
-| 1001 | 意图识别失败 |
-| 1002 | 参数提取失败 |
+| 错误码  | 说明       |
+| ---- | -------- |
+| 0    | 成功       |
+| 1001 | 意图识别失败   |
+| 1002 | 参数提取失败   |
 | 1003 | 下游接口调用失败 |
-| 1004 | LLM服务异常 |
+| 1004 | LLM服务异常  |
 | 1005 | 请求参数格式错误 |
 
 ---
 
 ## 十、性能要求
 
-| 指标 | 要求 |
-|------|------|
-| 意图识别响应时间 | ≤ 3秒（不含下游接口调用） |
+| 指标          | 要求             |
+| ----------- | -------------- |
+| 意图识别响应时间    | ≤ 3秒（不含下游接口调用） |
 | 高置信度端到端响应时间 | ≤ 10秒（含下游接口调用） |
-| 并发支持 | ≥ 50 QPS |
-| 可用性 | ≥ 99.5% |
+| 并发支持        | ≥ 50 QPS       |
+| 可用性         | ≥ 99.5%        |
 
 ---
 
@@ -698,11 +726,11 @@ omics-intent-service/
 
 ### 11.1 迭代计划
 
-| 版本 | 内容 | 时间 |
-|------|------|------|
+| 版本   | 内容             | 时间         |
+| ---- | -------------- | ---------- |
 | v1.0 | 基础意图识别+三种置信度场景 | 2026-06-25 |
-| v1.1 | 多轮对话支持+上下文记忆 | 2026-07-01 |
-| v1.2 | AlphaFold3接入 | 待定 |
+| v1.1 | 多轮对话支持+上下文记忆   | 2026-07-01 |
+| v1.2 | AlphaFold3接入   | 待定         |
 
 ### 11.2 优化方向
 
@@ -717,13 +745,13 @@ omics-intent-service/
 
 ### A. 术语表
 
-| 术语 | 说明 |
-|------|------|
-| ACR | Accessible Chromatin Region，活跃顺式调控元件 |
-| SNP | Single Nucleotide Polymorphism，单核苷酸多态性 |
-| LLR | Log-Likelihood Ratio，对数似然比 |
-| LoRA | Low-Rank Adaptation，低秩适配 |
-| IUPAC | 国际纯粹与应用化学联合会碱基代码标准 |
+| 术语    | 说明                                     |
+| ----- | -------------------------------------- |
+| ACR   | Accessible Chromatin Region，活跃顺式调控元件   |
+| SNP   | Single Nucleotide Polymorphism，单核苷酸多态性 |
+| LLR   | Log-Likelihood Ratio，对数似然比             |
+| LoRA  | Low-Rank Adaptation，低秩适配               |
+| IUPAC | 国际纯粹与应用化学联合会碱基代码标准                     |
 
 ### B. 参考文档
 
