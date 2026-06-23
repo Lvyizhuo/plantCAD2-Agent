@@ -624,6 +624,467 @@ async def recognize_intent(user_input: str) -> dict:
 | EVO2 转发接口      | http://36.137.205.153:8666/api/v1/generate | 8666 |
 | 组学意图识别服务       | http://localhost:8010                      | 8010 |
 
+### 6.5 PlantCAD2 接口调用详细设计
+
+#### 6.5.1 接口清单
+
+PlantCAD2推理服务（端口8005）共提供10个功能接口：
+
+**基础功能接口（3个）**：
+
+| 接口路径 | 功能 | 说明 |
+|---------|------|------|
+| POST /embeddings | 嵌入提取 | 提取DNA序列每个位置的1536维向量表示 |
+| POST /variant-score | 变异打分 | 评估单核苷酸变异的致病性 |
+| POST /masked-predict | 掩码预测 | 预测指定位置各碱基的概率分布 |
+
+**LoRA功能预测接口（7个）**：
+
+| 接口路径 | task参数值 | 功能 | 输出类型 |
+|---------|-----------|------|----------|
+| POST /predict | acr_arabidopsis | 拟南芥ACR预测 | 二分类 |
+| POST /predict | acr_nine_species | 九物种ACR预测 | 二分类 |
+| POST /predict | acr_cell_type | 细胞类型ACR预测 | 多标签分类(92类) |
+| POST /predict | expression_on_off | 叶片表达量开/关预测 | 二分类 |
+| POST /predict | expression_absolute | 叶片表达量绝对值预测 | 回归 |
+| POST /predict | translation_on_off | 叶片翻译效率开/关预测 | 二分类 |
+| POST /predict | translation_absolute | 叶片翻译效率绝对值预测 | 回归 |
+
+---
+
+#### 6.5.2 接口请求/响应格式
+
+**1. 嵌入提取 POST /embeddings**
+
+```json
+// 请求
+{
+  "sequence": "CTTAATTAATATTGCCTTTGTAA...",  // 必填，DNA序列（IUPAC碱基，最长8192bp）
+  "normalize": true                            // 可选，是否L2归一化，默认true
+}
+
+// 响应
+{
+  "embeddings": [[0.012, -0.034, ...], ...],   // 每个位置的1536维向量
+  "shape": [512, 1536],                        // 形状
+  "sequence_length": 512                       // token化后的序列长度
+}
+```
+
+**2. 变异打分 POST /variant-score**
+
+```json
+// 请求
+{
+  "sequence": "CTTAATTAATATTGCCTTTGTAA...",  // 必填，包含变异位点的上下文DNA序列
+  "position": 100,                            // 必填，变异位点的0-based位置
+  "ref_allele": "A",                          // 必填，参考碱基（A/C/G/T）
+  "alt_alleles": ["G", "C", "T"]              // 必填，变异碱基列表（最多3个）
+}
+
+// 响应
+{
+  "scores": {"G": -0.80, "C": -0.76, "T": 0.77},  // 每个变异碱基的LLR分数
+  "ref_prob": 0.246,                                // 参考碱基的预测概率
+  "alt_probs": {"G": 0.110, "C": 0.115, "T": 0.529} // 变异碱基的预测概率
+}
+```
+
+**LLR分数解读**：
+
+| LLR范围 | 含义 |
+|---------|------|
+| < -2 | 强烈保守，变异可能有害 |
+| -2 ~ 0 | 中度保守 |
+| 0 ~ 2 | 弱保守，变异影响较小 |
+| > 2 | 不保守，变异碱基更常见 |
+
+**3. 掩码预测 POST /masked-predict**
+
+```json
+// 请求
+{
+  "sequence": "CTTAATTAATATTGCCTTTGTAA...",  // 必填，DNA序列
+  "positions": [100, 200, 255]                 // 必填，要预测的位置列表（0-based，最多100个）
+}
+
+// 响应
+{
+  "predictions": {
+    "100": {"A": 0.246, "C": 0.115, "G": 0.110, "T": 0.529},
+    "200": {"A": 0.261, "C": 0.197, "G": 0.060, "T": 0.481},
+    "255": {"A": 0.967, "C": 0.006, "G": 0.013, "T": 0.013}
+  }
+}
+```
+
+**4. LoRA功能预测 POST /predict**
+
+```json
+// 请求（通用格式）
+{
+  "sequence": "CTTAATTAATATTGCCTTTGTAA...",  // 必填，DNA序列（建议≥600bp）
+  "task": "expression_on_off"                  // 必填，任务名称
+}
+
+// 响应 - 二分类任务
+{
+  "task": "expression_on_off",
+  "prediction": "POSITIVE",           // POSITIVE 或 NEGATIVE
+  "probability": 0.87                 // POSITIVE的概率（0~1）
+}
+
+// 响应 - 多标签分类任务（acr_cell_type）
+{
+  "task": "acr_cell_type",
+  "prediction": "MULTI_LABEL",
+  "probabilities": [0.12, 0.03, ...], // 92个细胞类型的概率（sigmoid）
+  "num_labels": 92
+}
+
+// 响应 - 回归任务
+{
+  "task": "expression_absolute",
+  "prediction": 3.45                  // 预测的连续值
+}
+```
+
+---
+
+#### 6.5.3 参数映射规则
+
+LLM提取的参数需要映射到各接口的请求格式：
+
+**任务ID → 接口映射表**：
+
+| 任务ID | 任务名称 | 接口路径 | 请求参数映射 |
+|--------|---------|----------|-------------|
+| 201 | 嵌入提取 | POST /embeddings | `sequence` → `sequence`, `normalize` → `normalize` |
+| 202 | 变异打分 | POST /variant-score | `sequence` → `sequence`, `position` → `position`, `ref_allele` → `ref_allele`, `alt_alleles` → `alt_alleles` |
+| 203 | 掩码预测 | POST /masked-predict | `sequence` → `sequence`, `positions` → `positions` |
+| 204 | ACR预测-拟南芥 | POST /predict | `sequence` → `sequence`, `task` = "acr_arabidopsis" |
+| 205 | ACR预测-九物种 | POST /predict | `sequence` → `sequence`, `task` = "acr_nine_species" |
+| 206 | ACR预测-细胞类型 | POST /predict | `sequence` → `sequence`, `task` = "acr_cell_type" |
+| 207 | 表达量预测-开/关 | POST /predict | `sequence` → `sequence`, `task` = "expression_on_off" |
+| 208 | 表达量预测-绝对值 | POST /predict | `sequence` → `sequence`, `task` = "expression_absolute" |
+| 209 | 翻译效率预测-开/关 | POST /predict | `sequence` → `sequence`, `task` = "translation_on_off" |
+| 210 | 翻译效率预测-绝对值 | POST /predict | `sequence` → `sequence`, `task` = "translation_absolute" |
+
+---
+
+#### 6.5.4 api_caller.py 实现设计
+
+```python
+"""
+PlantCAD2 接口调用层
+
+负责调用PlantCAD2推理服务的各个接口，处理参数映射和错误处理。
+"""
+
+import httpx
+from typing import Optional
+from loguru import logger
+
+# PlantCAD2 服务地址
+PLANTCAD2_BASE_URL = "http://localhost:8005"
+
+# 任务ID到接口路径和task参数的映射
+TASK_API_MAP = {
+    201: {"endpoint": "/embeddings", "task_param": None},
+    202: {"endpoint": "/variant-score", "task_param": None},
+    203: {"endpoint": "/masked-predict", "task_param": None},
+    204: {"endpoint": "/predict", "task_param": "acr_arabidopsis"},
+    205: {"endpoint": "/predict", "task_param": "acr_nine_species"},
+    206: {"endpoint": "/predict", "task_param": "acr_cell_type"},
+    207: {"endpoint": "/predict", "task_param": "expression_on_off"},
+    208: {"endpoint": "/predict", "task_param": "expression_absolute"},
+    209: {"endpoint": "/predict", "task_param": "translation_on_off"},
+    210: {"endpoint": "/predict", "task_param": "translation_absolute"},
+}
+
+# 任务ID到中文名称的映射
+TASK_NAME_MAP = {
+    201: "嵌入提取",
+    202: "变异打分",
+    203: "掩码预测",
+    204: "ACR预测-拟南芥",
+    205: "ACR预测-九物种",
+    206: "ACR预测-细胞类型",
+    207: "表达量预测-开/关",
+    208: "表达量预测-绝对值",
+    209: "翻译效率预测-开/关",
+    210: "翻译效率预测-绝对值",
+}
+
+
+async def call_plantcad2_api(task_id: int, params: dict) -> dict:
+    """
+    调用PlantCAD2接口
+
+    Args:
+        task_id: 任务ID (201-210)
+        params: LLM提取的参数
+
+    Returns:
+        接口响应结果
+
+    Raises:
+        ValueError: 任务ID无效
+        httpx.HTTPStatusError: 接口返回错误状态码
+        httpx.TimeoutException: 请求超时
+    """
+    if task_id not in TASK_API_MAP:
+        raise ValueError(f"无效的任务ID: {task_id}")
+
+    api_config = TASK_API_MAP[task_id]
+    endpoint = api_config["endpoint"]
+    task_param = api_config["task_param"]
+
+    # 构建请求体
+    request_body = build_request_body(task_id, params, task_param)
+
+    url = f"{PLANTCAD2_BASE_URL}{endpoint}"
+
+    logger.info(f"调用PlantCAD2接口 | task_id={task_id} endpoint={endpoint}")
+    logger.debug(f"请求参数 | {request_body}")
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=request_body)
+        response.raise_for_status()
+
+        result = response.json()
+        logger.info(f"接口调用成功 | task_id={task_id} result={result}")
+        return result
+
+
+def build_request_body(task_id: int, params: dict, task_param: Optional[str]) -> dict:
+    """
+    根据任务ID构建请求体
+
+    Args:
+        task_id: 任务ID
+        params: LLM提取的参数
+        task_param: LoRA任务的task参数值
+
+    Returns:
+        请求体字典
+    """
+    request_body = {}
+
+    # 嵌入提取
+    if task_id == 201:
+        request_body["sequence"] = params.get("sequence")
+        if "normalize" in params:
+            request_body["normalize"] = params["normalize"]
+
+    # 变异打分
+    elif task_id == 202:
+        request_body["sequence"] = params.get("sequence")
+        request_body["position"] = params.get("position")
+        request_body["ref_allele"] = params.get("ref_allele")
+        request_body["alt_alleles"] = params.get("alt_alleles")
+
+    # 掩码预测
+    elif task_id == 203:
+        request_body["sequence"] = params.get("sequence")
+        request_body["positions"] = params.get("positions")
+
+    # LoRA功能预测 (204-210)
+    else:
+        request_body["sequence"] = params.get("sequence")
+        request_body["task"] = task_param
+
+    return request_body
+
+
+def format_result_for_user(task_id: int, result: dict) -> str:
+    """
+    将接口返回结果格式化为用户可读的消息
+
+    Args:
+        task_id: 任务ID
+        result: 接口返回结果
+
+    Returns:
+        格式化后的消息
+    """
+    task_name = TASK_NAME_MAP.get(task_id, "未知任务")
+
+    # 嵌入提取
+    if task_id == 201:
+        shape = result.get("shape", [])
+        return f"已成功提取嵌入向量，形状为 {shape[0]}×{shape[1]}"
+
+    # 变异打分
+    elif task_id == 202:
+        scores = result.get("scores", {})
+        score_str = ", ".join([f"{k}: {v:.2f}" for k, v in scores.items()])
+        return f"变异打分结果：{score_str}"
+
+    # 掩码预测
+    elif task_id == 203:
+        predictions = result.get("predictions", {})
+        return f"已完成 {len(predictions)} 个位置的碱基概率预测"
+
+    # 二分类任务
+    elif task_id in [204, 205, 207, 209]:
+        prediction = result.get("prediction", "")
+        probability = result.get("probability", 0)
+        return f"{task_name}结果：{prediction}（概率：{probability:.1%}）"
+
+    # 多标签分类任务
+    elif task_id == 206:
+        num_labels = result.get("num_labels", 0)
+        return f"细胞类型ACR预测完成，共 {num_labels} 个细胞类型的概率"
+
+    # 回归任务
+    elif task_id in [208, 210]:
+        prediction = result.get("prediction", 0)
+        return f"{task_name}结果：{prediction:.4f}"
+
+    return f"{task_name}已完成"
+```
+
+---
+
+#### 6.5.5 参数提取提示词
+
+```python
+PARAM_EXTRACTION_PROMPT = """你是一个参数提取助手。根据用户输入和目标任务，提取对应的API请求参数。
+
+### 任务参数映射
+
+| 任务ID | 需要提取的参数 | 参数格式要求 |
+|--------|---------------|-------------|
+| 201 | sequence, normalize(可选) | sequence: IUPAC碱基字符串(A/C/G/T/N/R/Y/M/K/S/W/H/V/D) |
+| 202 | sequence, position, ref_allele, alt_alleles | position: 0-based整数; ref_allele: A/C/G/T; alt_alleles: [A/C/G/T]数组 |
+| 203 | sequence, positions | positions: 0-based整数数组 |
+| 204-210 | sequence | sequence: IUPAC碱基字符串 |
+
+### 输出格式
+
+严格输出JSON格式，不要包含任何解释：
+```json
+{
+  "sequence": "提取的DNA序列",
+  "其他参数": "对应值"
+}
+```
+
+### 注意事项
+
+1. sequence必须是有效的DNA序列，只包含A/C/G/T/N等IUPAC碱基
+2. position从0开始计数
+3. 如果用户未提供某个可选参数，不要包含该字段
+4. 如果无法提取到必要参数，返回空JSON: {}
+"""
+```
+
+---
+
+#### 6.5.6 错误处理
+
+**接口调用错误处理**：
+
+| 错误类型 | HTTP状态码 | 处理方式 |
+|---------|-----------|----------|
+| 参数校验失败 | 422 | 解析错误详情，返回参数格式提示 |
+| 业务错误（位置越界等） | 400 | 返回错误原因，引导用户修正 |
+| LoRA适配器未找到 | 404 | 提示任务暂不可用 |
+| 服务器内部错误 | 500 | 返回通用错误提示，建议稍后重试 |
+| 请求超时 | - | 重试2次，失败返回超时提示 |
+
+**错误响应格式**：
+
+```json
+{
+  "confidence": "high",
+  "task_id": 202,
+  "task_name": "变异打分",
+  "error": {
+    "code": 422,
+    "message": "参数校验失败",
+    "detail": "body -> position: Input should be greater than or equal to 0"
+  },
+  "guide_message": "参数格式错误：变异位置应为非负整数，请检查后重试"
+}
+```
+
+---
+
+#### 6.5.7 完整调用流程示例
+
+**示例1：高置信度 - 表达量预测**
+
+```
+用户输入："帮我预测这段DNA序列的表达量开/关：CTTAATTAATATTGCCTTTGTAA..."
+
+步骤1：意图识别
+→ task_id: 207, confidence: high
+
+步骤2：参数提取
+→ {"sequence": "CTTAATTAATATTGCCTTTGTAA...", "task": "expression_on_off"}
+
+步骤3：构建请求体
+→ {
+    "sequence": "CTTAATTAATATTGCCTTTGTAA...",
+    "task": "expression_on_off"
+  }
+
+步骤4：调用接口
+→ POST http://localhost:8005/predict
+
+步骤5：返回结果
+→ {
+    "confidence": "high",
+    "task_id": 207,
+    "task_name": "表达量预测-开/关",
+    "model": "PlantCAD2",
+    "params": {"sequence": "CTTAATTAAT...", "task": "expression_on_off"},
+    "result": {"task": "expression_on_off", "prediction": "POSITIVE", "probability": 0.87},
+    "guide_message": "表达量开/关预测结果：POSITIVE（概率：87%）"
+  }
+```
+
+**示例2：高置信度 - 变异打分**
+
+```
+用户输入："评估变异：序列CTTAATTAATATTGCCTTTGTAA...，位置100，参考碱基A，变异碱基G"
+
+步骤1：意图识别
+→ task_id: 202, confidence: high
+
+步骤2：参数提取
+→ {
+    "sequence": "CTTAATTAATATTGCCTTTGTAA...",
+    "position": 100,
+    "ref_allele": "A",
+    "alt_alleles": ["G"]
+  }
+
+步骤3：构建请求体
+→ {
+    "sequence": "CTTAATTAATATTGCCTTTGTAA...",
+    "position": 100,
+    "ref_allele": "A",
+    "alt_alleles": ["G"]
+  }
+
+步骤4：调用接口
+→ POST http://localhost:8005/variant-score
+
+步骤5：返回结果
+→ {
+    "confidence": "high",
+    "task_id": 202,
+    "task_name": "变异打分",
+    "model": "PlantCAD2",
+    "params": {...},
+    "result": {"scores": {"G": -0.80}, "ref_prob": 0.246, "alt_probs": {"G": 0.110}},
+    "guide_message": "变异打分结果：G=-0.80（参考碱基概率：24.6%，变异碱基概率：11.0%）"
+  }
+```
+
 ---
 
 ## 七、目录结构
