@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  plantcad2:
+    image: plantcad2-inference:latest
+    container_name: plantcad2
+    ports:
+      - "8005:8005"
+    environment:
+      - CUDA_VISIBLE_DEVICES=3
+      - PLANTCAD2_DEVICE=cuda:0
+      - PLANTCAD2_PRELOAD_LORA=true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['3']
+              capabilities: [gpu]
+    volumes:
+      - plantcad2-logs:/workspace/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  plantcad2-logs:
