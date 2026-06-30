@@ -29,7 +29,8 @@ CUDA_VISIBLE_DEVICES=3 PLANTCAD2_DEVICE=cuda:0 uvicorn app.main:app --host 0.0.0
 ----------------------------------------
 
 1) 健康检查
-
+  
+  
 curl http://localhost:8005/health
 
 预期返回：
